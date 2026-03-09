@@ -109,6 +109,13 @@ class PneumoniaExplainer:
                 shap_values_pneumonia = shap_values[0]
             base_value = explainer.expected_value[1] if isinstance(explainer.expected_value, list) else explainer.expected_value
         
+        # CRITICAL: Ensure shap_values_pneumonia is always 1D array with correct length
+        shap_values_pneumonia = np.array(shap_values_pneumonia).flatten()
+        
+        # Validate we have exactly 17 features
+        if len(shap_values_pneumonia) != 17:
+            raise ValueError(f"Expected 17 SHAP values, got {len(shap_values_pneumonia)}")
+        
         # Generate visualizations
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
@@ -198,6 +205,9 @@ class PneumoniaExplainer:
     def _create_bar_plot(self, shap_values, model_name, timestamp):
         """Create bar plot of feature importance"""
         
+        # Ensure shap_values is 1D
+        shap_values = np.array(shap_values).flatten()
+        
         plt.figure(figsize=(10, 7))
         
         # Get absolute SHAP values for importance
@@ -265,6 +275,9 @@ class PneumoniaExplainer:
     
     def _get_feature_importance(self, shap_values):
         """Extract and rank feature importance"""
+        
+        # Ensure shap_values is 1D
+        shap_values = np.array(shap_values).flatten()
         
         importance_list = []
         
