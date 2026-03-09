@@ -3,7 +3,7 @@ Flask REST API for Pneumonia Detection
 Backend API with model integration - Required for Hackathon Syllabus
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 import numpy as np
 import base64
@@ -13,6 +13,9 @@ import torch
 import torchvision.transforms as transforms
 from model_loader import ModelLoader
 import traceback
+import os
+from report_generator import MedicalReportGenerator
+from explainability import PneumoniaExplainer
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -28,6 +31,11 @@ try:
     print("\n✓ All models loaded successfully!\n")
 except Exception as e:
     print(f"⚠ Error loading models: {e}")
+
+# Initialize report generator and explainer
+report_generator = MedicalReportGenerator(output_dir='reports')
+explainer = PneumoniaExplainer(output_dir='explanations')
+print("✓ Report generator and explainability modules initialized\n")
 
 # Image preprocessing for CNN
 image_transform = transforms.Compose([
@@ -348,6 +356,217 @@ def predict_file_upload():
         }), 500
 
 
+@app.route('/predict/report', methods=['POST'])
+def predict_with_report():
+    """
+    Generate prediction with professional PDF medical report
+    
+    Usage:
+    - Upload image file
+    - Get prediction + PDF report download link
+    - Optionally get predictions from all models for comparison
+    """
+    try:
+        # Check if file is present
+        if 'file' not in request.files:
+            return jsonify({
+                'error': 'No file provided. Use key "file" in form-data'
+            }), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({
+                'error': 'Empty filename'
+            }), 400
+        
+        # Get model selection (default to random forest - best performer)
+        model_name = request.form.get('model', 'random_forest_model')
+        include_all_models = request.form.get('include_all_models', 'false').lower() == 'true'
+        
+        # Read and process image
+        image = Image.open(file.stream)
+        
+        # Save temporary image for report
+        temp_image_path = os.path.join('reports', f'temp_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg')
+        os.makedirs('reports', exist_ok=True)
+        image.save(temp_image_path)
+        
+        # Extract features for classical ML
+        features = extract_features_from_image(image)
+        
+        # Make prediction with selected model
+        result = model_loader.predict_classical(features, model_name)
+        
+        # Get predictions from all models if requested
+        all_models_results = None
+        if include_all_models:
+            all_models_results = []
+            for model_key in model_loader.list_available_models():
+                if model_key != 'cnn_model':  # Skip CNN for now
+                    try:
+                        model_result = model_loader.predict_classical(features, model_key)
+                        all_models_results.append({
+                            'model': model_key.replace('_', ' ').title(),
+                            'prediction': model_result['prediction'],
+                            'confidence': model_result['confidence']
+                        })
+                    except Exception as e:
+                        print(f"Error with model {model_key}: {e}")
+        
+        # Generate PDF report
+        from datetime import datetime
+        prediction_data = {
+            'prediction': result['prediction'],
+            'confidence': result['confidence'],
+            'model_name': model_name.replace('_', ' ').title(),
+            'image_path': temp_image_path,
+            'all_models_results': all_models_results,
+            'exam_id': f"XR-{datetime.now().strftime('%Y%m%d')}-{np.random.randint(1000, 9999)}"
+        }
+        
+        report_path = report_generator.generate_report(prediction_data)
+        
+        # Get just the filename for download URL
+        report_filename = os.path.basename(report_path)
+        
+        return jsonify({
+            'success': True,
+            'prediction': result['prediction'],
+            'confidence': round(result['confidence'], 4),
+            'model_used': result['model'],
+            'report_pdf': report_filename,
+            'download_url': f'/download/reports/{report_filename}',
+            'all_models': all_models_results,
+            'message': f'Report generated successfully. Prediction: {result["prediction"]}'
+        })
+    
+    except Exception as e:
+        print(f"Error in predict_with_report: {traceback.format_exc()}")
+        return jsonify({
+            'error': f'Report generation failed: {str(e)}'
+        }), 500
+
+
+@app.route('/predict/explain', methods=['POST'])
+def predict_with_explanation():
+    """
+    Generate prediction with SHAP explainability visualizations
+    
+    Usage:
+    - Upload image file
+    - Get prediction + SHAP explanation showing which features contributed
+    - Returns visualization images and human-readable explanation
+    """
+    try:
+        # Check if file is present
+        if 'file' not in request.files:
+            return jsonify({
+                'error': 'No file provided. Use key "file" in form-data'
+            }), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({
+                'error': 'Empty filename'
+            }), 400
+        
+        # Get model selection (default to random forest)
+        model_name = request.form.get('model', 'random_forest_model')
+        
+        # Read and process image
+        image = Image.open(file.stream)
+        
+        # Extract features
+        features = extract_features_from_image(image)
+        
+        # Get the model and scaler
+        model = model_loader.models.get(model_name)
+        scaler = model_loader.scaler
+        
+        if model is None:
+            return jsonify({
+                'error': f'Model {model_name} not found or not supported for explanation'
+            }), 400
+        
+        # Generate SHAP explanation
+        explanation_data = explainer.explain_prediction(
+            model=model,
+            features=features,
+            scaler=scaler,
+            model_name=model_name
+        )
+        
+        # Convert file paths to download URLs
+        visualizations = {}
+        for viz_type, viz_path in explanation_data['visualizations'].items():
+            if viz_path:
+                viz_filename = os.path.basename(viz_path)
+                visualizations[viz_type] = {
+                    'filename': viz_filename,
+                    'download_url': f'/download/explanations/{viz_filename}'
+                }
+        
+        # Get top 5 features for summary
+        top_features = explanation_data['feature_importance'][:5]
+        top_features_summary = [
+            {
+                'feature': f['feature'],
+                'description': f['description'],
+                'importance': round(f['abs_importance'], 4),
+                'direction': f['direction']
+            }
+            for f in top_features
+        ]
+        
+        return jsonify({
+            'success': True,
+            'prediction': 'PNEUMONIA' if explanation_data['prediction'] == 1 else 'NORMAL',
+            'confidence': round(explanation_data['confidence'], 4),
+            'model_used': model_name,
+            'visualizations': visualizations,
+            'top_features': top_features_summary,
+            'explanation_text': explanation_data['explanation_text'],
+            'message': 'Explanation generated successfully'
+        })
+    
+    except Exception as e:
+        print(f"Error in predict_with_explanation: {traceback.format_exc()}")
+        return jsonify({
+            'error': f'Explanation generation failed: {str(e)}'
+        }), 500
+
+
+@app.route('/download/<path:filename>')
+def download_file(filename):
+    """
+    Download generated files (reports, explanations)
+    
+    Usage:
+    - GET /download/reports/report_name.pdf
+    - GET /download/explanations/explanation_name.png
+    """
+    try:
+        # Determine directory based on path
+        if filename.startswith('reports/'):
+            directory = 'reports'
+            filename = filename.replace('reports/', '')
+        elif filename.startswith('explanations/'):
+            directory = 'explanations'
+            filename = filename.replace('explanations/', '')
+        else:
+            # Default to reports directory
+            directory = 'reports'
+        
+        return send_from_directory(directory, filename, as_attachment=True)
+    
+    except Exception as e:
+        return jsonify({
+            'error': f'File not found: {str(e)}'
+        }), 404
+
+
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors"""
@@ -377,7 +596,14 @@ if __name__ == '__main__':
     print("  POST /predict    - Make prediction (JSON with base64 image)")
     print("  POST /predict/upload - Make prediction (File upload - easier!)")
     print("  POST /predict/batch - Make batch predictions")
+    print("  POST /predict/report - Generate prediction + PDF report")
+    print("  POST /predict/explain - Generate prediction + SHAP explanation")
+    print("  GET  /download/<path> - Download reports/explanations")
     print("  GET  /test       - Test endpoint for Postman")
+    print("="*60)
+    print("\n🆕 NEW FEATURES:")
+    print("  📄 PDF Medical Reports - Clinical-grade documentation")
+    print("  🔍 SHAP Explainability - Visual feature importance")
     print("="*60)
     print("\nServer will start on http://localhost:5000")
     print("\n💡 Quick Postman Test:")
@@ -385,6 +611,16 @@ if __name__ == '__main__':
     print("   2. Body: form-data")
     print("   3. Key: 'file' (select X-ray image)")
     print("   4. Key: 'model' = 'random_forest_model'")
+    print("\n💡 Generate PDF Report:")
+    print("   1. POST to /predict/report")
+    print("   2. Body: form-data")
+    print("   3. Key: 'file' (select X-ray image)")
+    print("   4. Download PDF from returned URL")
+    print("\n💡 Get AI Explanation:")
+    print("   1. POST to /predict/explain")
+    print("   2. Body: form-data")
+    print("   3. Key: 'file' (select X-ray image)")
+    print("   4. View SHAP visualizations")
     print("\nUse Ctrl+C to stop the server\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000)

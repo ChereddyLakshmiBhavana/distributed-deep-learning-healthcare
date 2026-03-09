@@ -54,6 +54,16 @@
                 <button id="predictBtn" class="btn-primary" disabled>
                     🔬 Analyze X-Ray
                 </button>
+                
+                <!-- Advanced Features Buttons -->
+                <div class="advanced-features" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button id="reportBtn" class="btn-secondary" disabled style="flex: 1; min-width: 200px;">
+                        📄 Generate PDF Report
+                    </button>
+                    <button id="explainBtn" class="btn-secondary" disabled style="flex: 1; min-width: 200px;">
+                        🔍 Get AI Explanation
+                    </button>
+                </div>
 
                 <!-- Loading Indicator -->
                 <div id="loadingIndicator" class="loading hidden">
@@ -93,6 +103,48 @@
                 <button id="analyzeAnother" class="btn-secondary">
                     Analyze Another Image
                 </button>
+            </div>
+            
+            <!-- PDF Report Results -->
+            <div id="reportCard" class="card results-card hidden">
+                <h2>📄 Medical Report Generated</h2>
+                
+                <div class="result-content">
+                    <div class="report-info">
+                        <p>✅ Professional medical report has been generated successfully!</p>
+                        <p><strong>Prediction:</strong> <span id="reportPrediction"></span></p>
+                        <p><strong>Confidence:</strong> <span id="reportConfidence"></span></p>
+                    </div>
+                    
+                    <div class="download-section" style="margin-top: 20px;">
+                        <a id="downloadReportBtn" href="#" download class="btn-primary" style="display: inline-block; text-decoration: none;">
+                            ⬇️ Download PDF Report
+                        </a>
+                    </div>
+                    
+                    <div id="modelComparison" class="model-comparison" style="margin-top: 20px;"></div>
+                </div>
+            </div>
+            
+            <!-- Explainability Results -->
+            <div id="explainCard" class="card results-card hidden">
+                <h2>🔍 AI Explanation</h2>
+                
+                <div class="result-content">
+                    <div class="explanation-intro">
+                        <p><strong>Why did the AI make this prediction?</strong></p>
+                        <p>Understanding which features contributed to the diagnosis helps build trust and transparency.</p>
+                    </div>
+                    
+                    <div id="topFeatures" class="top-features" style="margin-top: 20px;"></div>
+                    
+                    <div class="visualizations" style="margin-top: 20px;">
+                        <h3>Feature Importance Visualizations</h3>
+                        <div id="shapVisualizations" style="display: grid; gap: 15px;"></div>
+                    </div>
+                    
+                    <div id="explanationText" class="explanation-text" style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 5px; white-space: pre-wrap;"></div>
+                </div>
             </div>
 
             <!-- Error Display -->
