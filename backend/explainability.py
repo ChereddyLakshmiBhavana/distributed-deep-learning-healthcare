@@ -86,11 +86,15 @@ class PneumoniaExplainer:
             
             # For binary classification, get PNEUMONIA class (index 1)
             if isinstance(shap_values, list) and len(shap_values) == 2:
-                shap_values_pneumonia = shap_values[1][0]
+                shap_values_pneumonia = shap_values[1][0]  # Shape: (n_features,)
                 base_value = explainer.expected_value[1]
             else:
-                shap_values_pneumonia = shap_values[0]
-                base_value = explainer.expected_value
+                # Handle single output case
+                if len(shap_values.shape) == 2:
+                    shap_values_pneumonia = shap_values[0]  # Shape: (n_features,)
+                else:
+                    shap_values_pneumonia = shap_values
+                base_value = explainer.expected_value if isinstance(explainer.expected_value, (int, float)) else explainer.expected_value[0]
                 
         except Exception as e:
             print(f"TreeExplainer failed, using KernelExplainer: {e}")
@@ -161,6 +165,14 @@ class PneumoniaExplainer:
         """Create waterfall plot showing feature contributions"""
         
         plt.figure(figsize=(10, 8))
+        
+        # Ensure shap_values is 1D array
+        if len(shap_values.shape) > 1:
+            shap_values = shap_values.flatten()
+        
+        # Ensure features is 1D array
+        if len(features.shape) > 1:
+            features = features.flatten()
         
         # Create SHAP explanation object
         explanation = shap.Explanation(

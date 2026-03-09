@@ -14,6 +14,7 @@ import torchvision.transforms as transforms
 from model_loader import ModelLoader
 import traceback
 import os
+from datetime import datetime
 from report_generator import MedicalReportGenerator
 from explainability import PneumoniaExplainer
 
@@ -415,7 +416,6 @@ def predict_with_report():
                         print(f"Error with model {model_key}: {e}")
         
         # Generate PDF report
-        from datetime import datetime
         prediction_data = {
             'prediction': result['prediction'],
             'confidence': result['confidence'],
