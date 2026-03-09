@@ -1,0 +1,269 @@
+{
+  "info": {
+    "name": "Pneumonia Detection API",
+    "description": "API for pneumonia detection from chest X-ray images using ML/DL models",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["health"]
+        },
+        "description": "Check if API is running and models are loaded"
+      }
+    },
+    {
+      "name": "2. API Information",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": [""]
+        },
+        "description": "Get API documentation and available endpoints"
+      }
+    },
+    {
+      "name": "3. List Available Models",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/models",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["models"]
+        },
+        "description": "Get list of all loaded models"
+      }
+    },
+    {
+      "name": "4. Test Endpoint Helper",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/test",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["test"]
+        },
+        "description": "Get sample request format for testing"
+      }
+    },
+    {
+      "name": "5. Predict - Random Forest",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"image\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAIBAQEBAQIBAQECAgICAgQDAgICAgUEBAMEBgUGBgYFBgYGBwkIBgcJBwYGCAsICQoKCgoKBggLDAsKDAkKCgr/2wBDAQICAgICAgUDAwUKBwYHCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgr/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwA/wA=\",\n  \"model\": \"random_forest_model\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["predict"]
+        },
+        "description": "Make prediction using Random Forest model (replace base64 with actual X-ray image)"
+      }
+    },
+    {
+      "name": "6. Predict - Logistic Regression",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"image\": \"data:image/jpeg;base64,YOUR_BASE64_HERE\",\n  \"model\": \"logistic_regression_model\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["predict"]
+        }
+      }
+    },
+    {
+      "name": "7. Predict - Decision Tree",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"image\": \"data:image/jpeg;base64,YOUR_BASE64_HERE\",\n  \"model\": \"decision_tree_model\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["predict"]
+        }
+      }
+    },
+    {
+      "name": "8. Predict - KNN",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"image\": \"data:image/jpeg;base64,YOUR_BASE64_HERE\",\n  \"model\": \"k-nearest_neighbors_model\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["predict"]
+        }
+      }
+    },
+    {
+      "name": "9. Predict - Naive Bayes",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"image\": \"data:image/jpeg;base64,YOUR_BASE64_HERE\",\n  \"model\": \"naive_bayes_model\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["predict"]
+        }
+      }
+    },
+    {
+      "name": "10. Predict - CNN (Deep Learning)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"image\": \"data:image/jpeg;base64,YOUR_BASE64_HERE\",\n  \"model\": \"cnn_model\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["predict"]
+        },
+        "description": "Prediction using Deep Learning CNN model"
+      }
+    },
+    {
+      "name": "11. Batch Prediction",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"images\": [\n    \"data:image/jpeg;base64,IMAGE1_BASE64\",\n    \"data:image/jpeg;base64,IMAGE2_BASE64\",\n    \"data:image/jpeg;base64,IMAGE3_BASE64\"\n  ],\n  \"model\": \"random_forest_model\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/predict/batch",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["predict", "batch"]
+        },
+        "description": "Predict multiple images at once"
+      }
+    }
+  ]
+}

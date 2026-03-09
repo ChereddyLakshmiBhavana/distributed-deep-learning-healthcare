@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pneumonia Detection System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🏥 Pneumonia Detection System</h1>
+            <p class="subtitle">Distributed Deep Learning for Smart Healthcare Diagnosis</p>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Upload Section -->
+            <div class="card">
+                <h2>Upload Chest X-Ray Image</h2>
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="imageInput" accept="image/*" hidden>
+                    <div class="upload-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                        </svg>
+                        <p>Click to upload or drag and drop</p>
+                        <span class="file-types">PNG, JPG, JPEG (Max 5MB)</span>
+                    </div>
+                </div>
+                
+                <!-- Image Preview -->
+                <div id="imagePreview" class="image-preview hidden">
+                    <img id="previewImg" src="" alt="Preview">
+                    <button id="removeImage" class="btn-secondary">Remove Image</button>
+                </div>
+
+                <!-- Model Selection -->
+                <div class="model-selection">
+                    <label for="modelSelect"><strong>Select Model:</strong></label>
+                    <select id="modelSelect" class="model-select">
+                        <option value="random_forest_model">Random Forest (Recommended)</option>
+                        <option value="logistic_regression_model">Logistic Regression</option>
+                        <option value="decision_tree_model">Decision Tree</option>
+                        <option value="k-nearest_neighbors_model">K-Nearest Neighbors</option>
+                        <option value="naive_bayes_model">Naive Bayes</option>
+                        <option value="cnn_model">CNN (Deep Learning)</option>
+                    </select>
+                </div>
+
+                <!-- Predict Button -->
+                <button id="predictBtn" class="btn-primary" disabled>
+                    🔬 Analyze X-Ray
+                </button>
+
+                <!-- Loading Indicator -->
+                <div id="loadingIndicator" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Analyzing image...</p>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsCard" class="card results-card hidden">
+                <h2>Diagnosis Results</h2>
+                
+                <div class="result-content">
+                    <div id="predictionResult" class="prediction-box">
+                        <div class="prediction-label">Prediction:</div>
+                        <div id="predictionValue" class="prediction-value"></div>
+                    </div>
+
+                    <div class="confidence-box">
+                        <div class="confidence-label">Confidence:</div>
+                        <div id="confidenceValue" class="confidence-value"></div>
+                        <div class="confidence-bar">
+                            <div id="confidenceProgress" class="confidence-progress"></div>
+                        </div>
+                    </div>
+
+                    <div class="model-info">
+                        <span><strong>Model Used:</strong> <span id="modelUsed"></span></span>
+                    </div>
+
+                    <div class="disclaimer">
+                        ⚠️ <strong>Disclaimer:</strong> This is an AI-assisted diagnostic tool. 
+                        Always consult a qualified medical professional for final diagnosis and treatment decisions.
+                    </div>
+                </div>
+
+                <button id="analyzeAnother" class="btn-secondary">
+                    Analyze Another Image
+                </button>
+            </div>
+
+            <!-- Error Display -->
+            <div id="errorCard" class="card error-card hidden">
+                <h3>❌ Error</h3>
+                <p id="errorMessage"></p>
+                <button id="closeError" class="btn-secondary">Close</button>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer>
+            <div class="info-section">
+                <h3>About This System</h3>
+                <p>This pneumonia detection system uses advanced machine learning and deep learning algorithms 
+                   to analyze chest X-ray images. It demonstrates the application of distributed deep learning 
+                   in smart healthcare diagnosis.</p>
+                <p><strong>Technologies Used:</strong> Python, Flask, PyTorch, Scikit-learn, JavaScript</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
