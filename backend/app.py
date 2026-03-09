@@ -39,28 +39,59 @@ image_transform = transforms.Compose([
 def extract_features_from_image(image):
     """
     Extract statistical features from image for classical ML models
+    MUST MATCH exactly with notebook preprocessing for correct predictions
     """
-    img_array = np.array(image.convert('L').resize((64, 64)))
+    # Convert to grayscale and resize to 64x64 (MUST match notebook)
+    img = image.convert('L')
+    img = img.resize((64, 64))
+    img_array = np.array(img, dtype=np.float32)
+    
+    # Normalize pixel values to 0-1 range (important!)
+    img_array = img_array / 255.0
     
     features = {
-        'mean_intensity': np.mean(img_array),
-        'std_intensity': np.std(img_array),
-        'min_intensity': np.min(img_array),
-        'max_intensity': np.max(img_array),
-        'median_intensity': np.median(img_array),
+        'mean_intensity': float(np.mean(img_array)),
+        'std_intensity': float(np.std(img_array)),
+        'min_intensity': float(np.min(img_array)),
+        'max_intensity': float(np.max(img_array)),
+        'median_intensity': float(np.median(img_array)),
     }
     
-    # Histogram features
-    hist, _ = np.histogram(img_array, bins=10, range=(0, 256))
-    hist = hist / hist.sum() * 100
+    # Histogram features (10 bins, matching notebook)
+    hist, _ = np.histogram(img_array, bins=10, range=(0, 1))
+    hist = hist / hist.sum() * 100  # Normalize to percentage
     for i, val in enumerate(hist):
-        features[f'hist_bin_{i}'] = val
+        features[f'hist_bin_{i}'] = float(val)
     
-    # Additional features
-    features['edge_density'] = np.sum(np.abs(np.diff(img_array))) / img_array.size
-    features['contrast'] = img_array.max() - img_array.min()
+    # Edge detection for spatial features
+    edges = np.abs(np.diff(img_array))
+    features['edge_density'] = float(np.sum(edges) / img_array.size)
     
-    return np.array([list(features.values())])
+    # Contrast
+    features['contrast'] = float(img_array.max() - img_array.min())
+    
+    # Return as numpy array in correct format
+    feature_values = [
+        features['mean_intensity'],
+        features['std_intensity'],
+        features['min_intensity'],
+        features['max_intensity'],
+        features['median_intensity'],
+        features['hist_bin_0'],
+        features['hist_bin_1'],
+        features['hist_bin_2'],
+        features['hist_bin_3'],
+        features['hist_bin_4'],
+        features['hist_bin_5'],
+        features['hist_bin_6'],
+        features['hist_bin_7'],
+        features['hist_bin_8'],
+        features['hist_bin_9'],
+        features['edge_density'],
+        features['contrast']
+    ]
+    
+    return np.array([feature_values])
 
 
 @app.route('/')
