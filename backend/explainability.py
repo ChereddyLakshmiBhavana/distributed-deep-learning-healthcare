@@ -52,6 +52,62 @@ class PneumoniaExplainer:
             'edge_density': 'Sharpness of boundaries/edges',
             'contrast': 'Overall contrast range'
         }
+
+    def _extract_pneumonia_shap_values(self, shap_values):
+        """Normalize SHAP output to a 1D vector for pneumonia class (17 features)."""
+        n_features = len(self.feature_names)
+
+        # Case 1: Classic list output [class0_values, class1_values]
+        if isinstance(shap_values, list):
+            if len(shap_values) >= 2:
+                values = np.array(shap_values[1])
+            else:
+                values = np.array(shap_values[0])
+
+            if values.ndim > 1:
+                values = values[0]
+            return np.array(values).flatten()
+
+        # Case 2: ndarray output from newer SHAP versions
+        values = np.array(shap_values)
+
+        # Expected variants observed:
+        # (1, n_features), (n_features,), (1, n_features, 2), (1, 2, n_features)
+        if values.ndim == 1:
+            return values
+
+        if values.ndim == 2:
+            # Usually (1, n_features)
+            if values.shape[0] == 1:
+                return values[0]
+            # If class dimension is mixed in 2D, pick pneumonia class index 1
+            if values.shape[0] == 2 and values.shape[1] == n_features:
+                return values[1]
+            if values.shape[1] == 2 and values.shape[0] == n_features:
+                return values[:, 1]
+            return values.flatten()
+
+        if values.ndim == 3:
+            # (samples, features, classes)
+            if values.shape[2] == 2:
+                return values[0, :, 1]
+            # (samples, classes, features)
+            if values.shape[1] == 2:
+                return values[0, 1, :]
+            # Fallback: first sample flattened
+            return values[0].flatten()
+
+        # Generic fallback
+        return values.flatten()
+
+    def _extract_pneumonia_base_value(self, expected_value):
+        """Extract scalar base value for pneumonia class."""
+        if isinstance(expected_value, (list, tuple, np.ndarray)):
+            arr = np.array(expected_value).flatten()
+            if len(arr) >= 2:
+                return float(arr[1])
+            return float(arr[0])
+        return float(expected_value)
     
     def explain_prediction(self, model, features, scaler, model_name='random_forest'):
         """
@@ -83,18 +139,8 @@ class PneumoniaExplainer:
             # For tree-based models
             explainer = shap.TreeExplainer(model)
             shap_values = explainer.shap_values(scaled_features)
-            
-            # For binary classification, get PNEUMONIA class (index 1)
-            if isinstance(shap_values, list) and len(shap_values) == 2:
-                shap_values_pneumonia = shap_values[1][0]  # Shape: (n_features,)
-                base_value = explainer.expected_value[1]
-            else:
-                # Handle single output case
-                if len(shap_values.shape) == 2:
-                    shap_values_pneumonia = shap_values[0]  # Shape: (n_features,)
-                else:
-                    shap_values_pneumonia = shap_values
-                base_value = explainer.expected_value if isinstance(explainer.expected_value, (int, float)) else explainer.expected_value[0]
+            shap_values_pneumonia = self._extract_pneumonia_shap_values(shap_values)
+            base_value = self._extract_pneumonia_base_value(explainer.expected_value)
                 
         except Exception as e:
             print(f"TreeExplainer failed, using KernelExplainer: {e}")
@@ -102,12 +148,8 @@ class PneumoniaExplainer:
             # Use a small background dataset (just the current sample)
             explainer = shap.KernelExplainer(model.predict_proba, scaled_features)
             shap_values = explainer.shap_values(scaled_features)
-            
-            if isinstance(shap_values, list):
-                shap_values_pneumonia = shap_values[1][0]
-            else:
-                shap_values_pneumonia = shap_values[0]
-            base_value = explainer.expected_value[1] if isinstance(explainer.expected_value, list) else explainer.expected_value
+            shap_values_pneumonia = self._extract_pneumonia_shap_values(shap_values)
+            base_value = self._extract_pneumonia_base_value(explainer.expected_value)
         
         # CRITICAL: Ensure shap_values_pneumonia is always 1D array with correct length
         shap_values_pneumonia = np.array(shap_values_pneumonia).flatten()
