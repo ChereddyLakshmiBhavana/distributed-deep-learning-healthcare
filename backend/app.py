@@ -45,6 +45,42 @@ image_transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 
+
+def validate_chest_xray_image(image):
+    """
+    Lightweight input validation to reject obvious non-X-ray images.
+
+    This is a heuristic guardrail (not a diagnostic classifier).
+    """
+    # Work on a fixed-size thumbnail for stable stats
+    rgb_img = image.convert('RGB').resize((224, 224))
+    rgb = np.array(rgb_img, dtype=np.float32)
+
+    # X-rays are grayscale-like; color photos have larger channel differences.
+    rg_diff = np.mean(np.abs(rgb[:, :, 0] - rgb[:, :, 1])) / 255.0
+    gb_diff = np.mean(np.abs(rgb[:, :, 1] - rgb[:, :, 2])) / 255.0
+    rb_diff = np.mean(np.abs(rgb[:, :, 0] - rgb[:, :, 2])) / 255.0
+    color_difference = float((rg_diff + gb_diff + rb_diff) / 3.0)
+
+    # Additional sanity checks on grayscale intensity distribution.
+    gray = np.array(rgb_img.convert('L'), dtype=np.float32) / 255.0
+    gray_std = float(np.std(gray))
+    dynamic_range = float(np.max(gray) - np.min(gray))
+
+    # Thresholds tuned to block obvious natural/color images while keeping X-rays.
+    is_valid = (
+        color_difference <= 0.03 and
+        gray_std >= 0.05 and
+        dynamic_range >= 0.20
+    )
+
+    return {
+        'is_valid': is_valid,
+        'color_difference': round(color_difference, 4),
+        'gray_std': round(gray_std, 4),
+        'dynamic_range': round(dynamic_range, 4)
+    }
+
 def extract_features_from_image(image):
     """
     Extract statistical features from image for classical ML models
@@ -177,6 +213,14 @@ def predict():
             return jsonify({
                 'error': f'Invalid image data: {str(e)}'
             }), 400
+
+        # Validate that input resembles a chest X-ray
+        validation = validate_chest_xray_image(image)
+        if not validation['is_valid']:
+            return jsonify({
+                'error': 'Uploaded image does not appear to be a chest X-ray. Please upload a valid chest X-ray image.',
+                'validation': validation
+            }), 400
         
         # Make prediction based on model type
         if model_name == 'cnn_model':
@@ -234,6 +278,17 @@ def predict_batch():
                     image_data = image_data.split(',')[1]
                 image_bytes = base64.b64decode(image_data)
                 image = Image.open(BytesIO(image_bytes))
+
+                # Validate X-ray suitability per item
+                validation = validate_chest_xray_image(image)
+                if not validation['is_valid']:
+                    results.append({
+                        'index': idx,
+                        'success': False,
+                        'error': 'Image does not appear to be a chest X-ray',
+                        'validation': validation
+                    })
+                    continue
                 
                 # Predict
                 if model_name == 'cnn_model':
@@ -331,6 +386,14 @@ def predict_file_upload():
         
         # Read and process image
         image = Image.open(file.stream)
+
+        # Validate that input resembles a chest X-ray
+        validation = validate_chest_xray_image(image)
+        if not validation['is_valid']:
+            return jsonify({
+                'error': 'Uploaded image does not appear to be a chest X-ray. Please upload a valid chest X-ray image.',
+                'validation': validation
+            }), 400
         
         # Make prediction based on model type
         if model_name == 'cnn_model':
@@ -387,6 +450,14 @@ def predict_with_report():
         
         # Read and process image
         image = Image.open(file.stream)
+
+        # Validate that input resembles a chest X-ray
+        validation = validate_chest_xray_image(image)
+        if not validation['is_valid']:
+            return jsonify({
+                'error': 'Uploaded image does not appear to be a chest X-ray. Please upload a valid chest X-ray image.',
+                'validation': validation
+            }), 400
         
         # Save temporary image for report
         temp_image_path = os.path.join('reports', f'temp_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg')
@@ -477,6 +548,14 @@ def predict_with_explanation():
         
         # Read and process image
         image = Image.open(file.stream)
+
+        # Validate that input resembles a chest X-ray
+        validation = validate_chest_xray_image(image)
+        if not validation['is_valid']:
+            return jsonify({
+                'error': 'Uploaded image does not appear to be a chest X-ray. Please upload a valid chest X-ray image.',
+                'validation': validation
+            }), 400
         
         # Extract features
         features = extract_features_from_image(image)
