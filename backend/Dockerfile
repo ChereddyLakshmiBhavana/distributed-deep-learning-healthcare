@@ -12,4 +12,4 @@ COPY . /app
 
 EXPOSE 5000
 
-CMD ["python", "backend/app.py"]
+CMD ["gunicorn", "--chdir", "backend", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "120", "app:app"]

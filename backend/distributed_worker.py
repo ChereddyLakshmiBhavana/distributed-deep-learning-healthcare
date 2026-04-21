@@ -11,7 +11,7 @@ from model_loader import ModelLoader
 from prediction_service import predict_from_image_bytes, predict_from_base64
 
 
-def process_job(job):
+def process_job(job, model_loader, engine):
     payload = job['payload']
     task_type = job['task_type']
 
@@ -33,9 +33,6 @@ def process_job(job):
         )
 
     if task_type == 'federated_aggregate':
-        from distributed_engine import DistributedEngine
-
-        engine = DistributedEngine()
         return engine.aggregate_federated_updates(
             model_name=payload['model_name'],
             round_id=payload.get('round_id')
@@ -48,6 +45,7 @@ def main():
     model_loader = ModelLoader()
     model_loader.load_classical_models()
     model_loader.load_cnn_model()
+    model_loader.load_fast_resnet_model()
 
     engine = DistributedEngine()
     print('Distributed worker started. Polling the queue...')
@@ -59,7 +57,7 @@ def main():
             continue
 
         try:
-            result = process_job(job)
+            result = process_job(job, model_loader, engine)
             engine.update_job(job['id'], 'completed', result=result)
             print(f"✓ Completed job {job['id']} ({job['task_type']})")
         except Exception as exc:
