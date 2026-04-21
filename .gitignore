@@ -29,6 +29,7 @@ wheels/
 
 # Dataset (large files)
 data/chest_xray/
+data/raw/chest_xray/
 *.zip
 *.tar.gz
 
@@ -50,6 +51,17 @@ Thumbs.db
 # Logs
 *.log
 logs/
+prediction_logs/
+backend/prediction_logs/
+
+# Runtime artifacts
+backend/reports/
+backend/explanations/
+backend/distributed_state/
+backend/*.db
+*.db
+reports/
+explanations/
 
 # Testing
 .pytest_cache/

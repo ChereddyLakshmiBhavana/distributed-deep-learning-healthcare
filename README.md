@@ -123,17 +123,35 @@ Predicts pneumonia from uploaded X-ray image.
 
 | Model | Accuracy | Precision | Recall | F1-Score |
 |-------|----------|-----------|--------|----------|
-| Logistic Regression | TBD | TBD | TBD | TBD |
-| Decision Tree | TBD | TBD | TBD | TBD |
-| Random Forest | TBD | TBD | TBD | TBD |
-| KNN | TBD | TBD | TBD | TBD |
-| Naive Bayes | TBD | TBD | TBD | TBD |
-| CNN (Deep Learning) | TBD | TBD | TBD | TBD |
+| Logistic Regression | 77.40% | 78.62% | 87.69% | 82.91% |
+| Decision Tree | 73.56% | 72.91% | 91.79% | 81.27% |
+| Random Forest | 72.28% | 70.83% | 94.62% | 81.01% |
+| KNN | 76.60% | 75.42% | 92.82% | 83.22% |
+| Naive Bayes | 71.79% | 79.72% | 73.59% | 76.53% |
+| CNN (Deep Learning) | See `artifacts/` for the latest run | See `artifacts/` for the latest run | See `artifacts/` for the latest run | See `artifacts/` for the latest run |
 
 ## Distributed Learning Approach
 - **Current**: Data parallelism with PyTorch
 - **Future**: Federated learning across multiple hospitals
 - **Benefits**: Privacy-preserving, scalable, collaborative learning
+
+## Distributed Engineering Stack
+
+The project now includes a practical distributed-engineering layer in the backend:
+
+- `GET /distributed/info` - runtime summary, queue status, and distributed readiness
+- `GET/POST /distributed/jobs` - enqueue or list async jobs
+- `POST /distributed/jobs/process-next` - process the next queued job
+- `POST /predict/async` - queue a prediction instead of running it immediately
+- `POST /distributed/federated/register` - register a hospital/site node
+- `POST /distributed/federated/update` - submit a local model update
+- `POST /distributed/federated/aggregate` - run FedAvg aggregation
+- `GET /distributed/federated/status` - inspect nodes and federated updates
+
+Container support is also included with `docker-compose.yml` so backend and frontend can run as services.
+Run `worker` service as well to process queued distributed jobs.
+
+See `DISTRIBUTED_ENGINEERING.md` for end-to-end commands.
 
 ## Team
 [Your Name/Team Names]

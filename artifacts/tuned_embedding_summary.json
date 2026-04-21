@@ -1,0 +1,6 @@
+{
+  "num_models": 6,
+  "num_models_over_90": 0,
+  "best_model": "Decision Tree",
+  "best_accuracy": 0.844551282051282
+}

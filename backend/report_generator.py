@@ -16,6 +16,7 @@ from datetime import datetime
 from PIL import Image as PILImage
 import os
 import numpy as np
+from pathlib import Path
 
 
 class MedicalReportGenerator:
@@ -28,9 +29,12 @@ class MedicalReportGenerator:
         Args:
             output_dir: Directory to save generated reports
         """
-        self.output_dir = output_dir
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        base_dir = Path(__file__).resolve().parent
+        candidate_dir = Path(output_dir)
+        self.output_dir = (base_dir / candidate_dir).resolve() if not candidate_dir.is_absolute() else candidate_dir
+
+        if not self.output_dir.exists():
+            self.output_dir.mkdir(parents=True, exist_ok=True)
         
         self.styles = getSampleStyleSheet()
         self._create_custom_styles()
@@ -120,7 +124,7 @@ class MedicalReportGenerator:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         patient_id = prediction_data.get('patient_id', 'UNKNOWN')
         filename = f"xray_report_{patient_id}_{timestamp}.pdf"
-        filepath = os.path.join(self.output_dir, filename)
+        filepath = str(self.output_dir / filename)
         
         # Create PDF document
         doc = SimpleDocTemplate(

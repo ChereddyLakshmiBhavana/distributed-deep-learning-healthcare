@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./models:/app/models
+      - ./backend/prediction_logs:/app/backend/prediction_logs
+      - ./backend/reports:/app/backend/reports
+      - ./backend/explanations:/app/backend/explanations
+      - ./backend/distributed_state:/app/backend/distributed_state
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "backend/distributed_worker.py"]
+    depends_on:
+      - backend
+    volumes:
+      - ./models:/app/models
+      - ./backend/prediction_logs:/app/backend/prediction_logs
+      - ./backend/reports:/app/backend/reports
+      - ./backend/explanations:/app/backend/explanations
+      - ./backend/distributed_state:/app/backend/distributed_state
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8000:80"
+    depends_on:
+      - backend

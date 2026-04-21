@@ -1,18 +1,18 @@
 # 🎓 Final Submission Report
 ## Distributed Deep Learning for Smart Healthcare - Pneumonia Detection
 
-**Submission Date:** March 10, 2026  
-**Project Status:** ✅ COMPLETE & READY FOR EVALUATION  
-**Hackathon Compliance:** 100% ✅
+**Submission Date:** April 19, 2026  
+**Project Status:** ✅ Real-data classical models refreshed  
+**Hackathon Compliance:** See current artifacts and deployment state
 
 ---
 
 ## 📋 EXECUTIVE SUMMARY
 
-This project successfully implements a **production-grade distributed machine learning system** for pneumonia detection from chest X-ray images, meeting all hackathon syllabus requirements:
+This project implements a **distributed machine learning system** for pneumonia detection from chest X-ray images, with a real-data classical ML pipeline, Flask REST API, and browser frontend:
 
-✅ **5 Classical ML Algorithms** - All trained and deployed  
-✅ **Evaluation Metrics** - Accuracy, Precision, Recall, F1-Score calculated  
+✅ **5 Classical ML Algorithms** - Trained on the real chest X-ray dataset  
+✅ **Evaluation Metrics** - Accuracy, Precision, Recall, F1-Score calculated from the real dataset  
 ✅ **Flask REST API** - 7 endpoints with model loading & prediction  
 ✅ **Web Frontend Demo** - Interactive UI with real-time predictions  
 ✅ **Postman Testing** - 11 pre-configured test cases  
@@ -54,13 +54,13 @@ This project successfully implements a **production-grade distributed machine le
 
 | Model | Accuracy | Precision | Recall | F1-Score | Training Time |
 |-------|----------|-----------|--------|----------|---|
-| **Logistic Regression** | 85.47% | 0.84 | 0.88 | 0.86 | 2.3s |
-| **Decision Tree** | 83.91% | 0.82 | 0.86 | 0.84 | 0.8s |
-| **Random Forest** | **88.35%** | 0.87 | 0.90 | 0.88 | 8.5s |
-| **K-Nearest Neighbors** | 82.65% | 0.81 | 0.84 | 0.82 | 1.2s |
-| **Naive Bayes** | 81.41% | 0.79 | 0.82 | 0.80 | 0.3s |
+| **Logistic Regression** | 77.40% | 0.79 | 0.88 | 0.83 | real-data run |
+| **Decision Tree** | 73.56% | 0.73 | 0.92 | 0.81 | real-data run |
+| **Random Forest** | **72.28%** | 0.71 | 0.95 | 0.81 | real-data run |
+| **K-Nearest Neighbors** | 76.60% | 0.75 | 0.93 | 0.83 | real-data run |
+| **Naive Bayes** | 71.79% | 0.80 | 0.74 | 0.77 | real-data run |
 
-**Best Model:** Random Forest (88.35% accuracy) 🏆
+**Best Model:** Logistic Regression (77.40% accuracy) 🏆
 
 ---
 
@@ -112,13 +112,13 @@ This project successfully implements a **production-grade distributed machine le
 
 ### API Health Status
 ```
-Status: HEALTHY ✅
-Models Loaded: 5/5 ✅
-  ✓ logistic_regression_model
-  ✓ decision_tree_model
-  ✓ random_forest_model
-  ✓ k-nearest_neighbors_model
-  ✓ naive_bayes_model
+Status: check `GET /health` on the running backend
+Models Loaded: 5/5 if the trained `.pkl` files are present
+   ✓ logistic_regression_model
+   ✓ decision_tree_model
+   ✓ random_forest_model
+   ✓ k-nearest_neighbors_model
+   ✓ naive_bayes_model
 ```
 
 ### Model Files Generated

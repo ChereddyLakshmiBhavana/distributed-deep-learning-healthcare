@@ -1,5 +1,11 @@
 // API Configuration
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = window.__API_BASE_URL__ || (() => {
+    if (window.location && window.location.hostname) {
+        return `${window.location.protocol}//${window.location.hostname}:5000`;
+    }
+
+    return 'http://localhost:5000';
+})();
 
 // DOM Elements
 const uploadArea = document.getElementById('uploadArea');
@@ -23,6 +29,180 @@ const analyzeAnotherBtn = document.getElementById('analyzeAnother');
 // State
 let currentImageBase64 = null;
 let currentImageFile = null;
+let backendReady = false;
+let backendHealthTimer = null;
+let connectionErrorCooldownUntil = 0;
+
+const backendStatus = document.getElementById('backendStatus');
+const actionButtons = [predictBtn, reportBtn, explainBtn];
+
+function setActionButtonsEnabled(enabled) {
+    actionButtons.forEach((button) => {
+        if (button) {
+            button.disabled = !enabled || !currentImageFile;
+        }
+    });
+}
+
+function setBackendStatus(message, tone = 'neutral') {
+    if (!backendStatus) {
+        return;
+    }
+
+    const colors = {
+        neutral: { background: '#f4f4f4', color: '#333', border: '#d9d9d9' },
+        ok: { background: '#e8f7ee', color: '#166534', border: '#bbf7d0' },
+        warn: { background: '#fff7e6', color: '#92400e', border: '#fde68a' },
+        bad: { background: '#fdecec', color: '#991b1b', border: '#fca5a5' }
+    };
+
+    const style = colors[tone] || colors.neutral;
+    backendStatus.textContent = message;
+    backendStatus.style.background = style.background;
+    backendStatus.style.color = style.color;
+    backendStatus.style.border = `1px solid ${style.border}`;
+}
+
+async function checkBackendHealth() {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const response = await fetch(`${API_BASE_URL}/health`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+            backendReady = true;
+            setBackendStatus(`Backend online at ${API_BASE_URL}`, 'ok');
+            setActionButtonsEnabled(true);
+            return true;
+        }
+
+        throw new Error(`Health check failed with status ${response.status}`);
+    } catch (error) {
+        backendReady = false;
+        setBackendStatus(`Backend offline. Start the API at ${API_BASE_URL} to enable analysis.`, 'bad');
+        setActionButtonsEnabled(false);
+        return false;
+    }
+}
+
+function startBackendHealthPolling() {
+    if (backendHealthTimer) {
+        clearInterval(backendHealthTimer);
+    }
+
+    backendHealthTimer = setInterval(checkBackendHealth, 10000);
+}
+
+function showBackendUnavailableOnce() {
+    const now = Date.now();
+    if (now < connectionErrorCooldownUntil) {
+        return;
+    }
+
+    connectionErrorCooldownUntil = now + 8000;
+    showError(`Backend is not reachable at ${API_BASE_URL}. Start the server once, then retry.`);
+}
+
+function replayClass(element, className) {
+    if (!element) {
+        return;
+    }
+
+    element.classList.remove(className);
+    void element.offsetWidth;
+    element.classList.add(className);
+}
+
+function animateReveal(element) {
+    replayClass(element, 'animate-reveal');
+}
+
+function animateCountUp(element, targetValue, duration = 850) {
+    const startTime = performance.now();
+
+    function update(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const currentValue = (targetValue * easeOut).toFixed(1);
+        element.textContent = `${currentValue}%`;
+
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+
+    requestAnimationFrame(update);
+}
+
+function initStaggeredEntrance() {
+    const stagedGroups = [
+        document.querySelectorAll('[data-stage="1"]'),
+        document.querySelectorAll('[data-stage="2"]'),
+        document.querySelectorAll('[data-stage="3"]:not(.hidden)')
+    ];
+
+    stagedGroups.forEach((group, stageIndex) => {
+        const delay = stageIndex * 140;
+        setTimeout(() => {
+            group.forEach((element) => {
+                element.classList.add('stage-visible');
+            });
+        }, delay);
+    });
+}
+
+function animateSequence(cardElement, selector) {
+    if (!cardElement || cardElement.classList.contains('hidden')) {
+        return;
+    }
+
+    replayClass(cardElement, 'sequence-active');
+
+    const blocks = cardElement.querySelectorAll(selector);
+    blocks.forEach((block) => {
+        block.style.animation = 'none';
+        void block.offsetWidth;
+        block.style.animation = '';
+    });
+}
+
+function staggerElements(elements, stepMs = 70) {
+    elements.forEach((element, index) => {
+        element.classList.add('stagger-in');
+        element.classList.remove('stagger-visible');
+        element.style.animationDelay = `${index * stepMs}ms`;
+
+        requestAnimationFrame(() => {
+            element.classList.add('stagger-visible');
+        });
+    });
+}
+
+function transitionUploadToPreview() {
+    uploadArea.classList.add('exiting');
+
+    setTimeout(() => {
+        uploadArea.classList.add('hidden');
+        uploadArea.classList.remove('exiting');
+
+        imagePreview.classList.remove('hidden');
+        replayClass(imagePreview, 'entering');
+    }, 210);
+}
+
+function transitionPreviewToUpload() {
+    imagePreview.classList.add('exiting');
+
+    setTimeout(() => {
+        imagePreview.classList.add('hidden');
+        imagePreview.classList.remove('entering', 'exiting');
+
+        uploadArea.classList.remove('hidden');
+        replayClass(uploadArea, 'entering');
+    }, 170);
+}
 
 // Event Listeners
 uploadArea.addEventListener('click', () => imageInput.click());
@@ -33,6 +213,8 @@ reportBtn.addEventListener('click', generateReport);
 explainBtn.addEventListener('click', generateExplanation);
 closeErrorBtn.addEventListener('click', () => errorCard.classList.add('hidden'));
 analyzeAnotherBtn.addEventListener('click', resetForNewAnalysis);
+
+checkBackendHealth().then(startBackendHealthPolling);
 
 // Drag and Drop
 uploadArea.addEventListener('dragover', (e) => {
@@ -87,12 +269,9 @@ function handleFile(file) {
         currentImageBase64 = e.target.result;
         previewImg.src = currentImageBase64;
         
-        // Show preview, hide upload area
-        uploadArea.classList.add('hidden');
-        imagePreview.classList.remove('hidden');
-        predictBtn.disabled = false;
-        reportBtn.disabled = false;
-        explainBtn.disabled = false;
+        // Show preview, hide upload area with transition
+        transitionUploadToPreview();
+        setActionButtonsEnabled(backendReady);
         
         // Hide results and errors
         resultsCard.classList.add('hidden');
@@ -113,8 +292,7 @@ function resetUpload() {
     currentImageBase64 = null;
     currentImageFile = null;
     imageInput.value = '';
-    uploadArea.classList.remove('hidden');
-    imagePreview.classList.add('hidden');
+    transitionPreviewToUpload();
     predictBtn.disabled = true;
     reportBtn.disabled = true;
     explainBtn.disabled = true;
@@ -134,6 +312,14 @@ async function makePrediction() {
     if (!currentImageBase64) {
         showError('No image selected');
         return;
+    }
+
+    if (!backendReady) {
+        await checkBackendHealth();
+        if (!backendReady) {
+            showBackendUnavailableOnce();
+            return;
+        }
     }
 
     const selectedModel = modelSelect.value;
@@ -170,7 +356,10 @@ async function makePrediction() {
     } catch (error) {
         loadingIndicator.classList.add('hidden');
         console.error('Error:', error);
-        showError(`Connection error: ${error.message}. Make sure the backend server is running at ${API_BASE_URL}`);
+        backendReady = false;
+        setActionButtonsEnabled(false);
+        setBackendStatus(`Backend connection lost. Retry after the API restarts at ${API_BASE_URL}.`, 'bad');
+        showBackendUnavailableOnce();
         predictBtn.disabled = false;
     }
 }
@@ -189,7 +378,11 @@ function displayResults(data) {
 
     // Set confidence
     const confidencePercent = (data.confidence * 100).toFixed(1);
-    confidenceValue.textContent = `${confidencePercent}%`;
+    confidenceValue.textContent = '0.0%';
+    animateCountUp(confidenceValue, Number(confidencePercent));
+    confidenceProgress.classList.remove('confidence-grow');
+    void confidenceProgress.offsetWidth;
+    confidenceProgress.classList.add('confidence-grow');
     confidenceProgress.style.width = `${confidencePercent}%`;
 
     // Set model name
@@ -205,6 +398,9 @@ function displayResults(data) {
 
     // Show results
     resultsCard.classList.remove('hidden');
+    resultsCard.classList.add('stage-visible');
+    animateReveal(resultsCard);
+    animateSequence(resultsCard, '.result-block');
     
     // Smooth scroll to results
     resultsCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -214,6 +410,7 @@ function displayResults(data) {
 function showError(message) {
     errorMessage.textContent = message;
     errorCard.classList.remove('hidden');
+    animateReveal(errorCard);
     errorCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -222,6 +419,14 @@ async function generateReport() {
     if (!currentImageFile) {
         showError('No image selected');
         return;
+    }
+
+    if (!backendReady) {
+        await checkBackendHealth();
+        if (!backendReady) {
+            showBackendUnavailableOnce();
+            return;
+        }
     }
 
     const selectedModel = modelSelect.value;
@@ -258,7 +463,10 @@ async function generateReport() {
     } catch (error) {
         loadingIndicator.classList.add('hidden');
         console.error('Error:', error);
-        showError(`Connection error: ${error.message}. Make sure the backend server is running.`);
+        backendReady = false;
+        setActionButtonsEnabled(false);
+        setBackendStatus(`Backend connection lost. Retry after the API restarts at ${API_BASE_URL}.`, 'bad');
+        showBackendUnavailableOnce();
         reportBtn.disabled = false;
     }
 }
@@ -303,10 +511,16 @@ function displayReportResults(data) {
             </tbody>
         `;
         comparisonDiv.appendChild(table);
+
+        const tableRows = comparisonDiv.querySelectorAll('tbody tr');
+        staggerElements(Array.from(tableRows), 65);
     }
     
     // Show report card
     reportCard.classList.remove('hidden');
+    reportCard.classList.add('stage-visible');
+    animateReveal(reportCard);
+    animateSequence(reportCard, '.report-block');
     reportCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -315,6 +529,14 @@ async function generateExplanation() {
     if (!currentImageFile) {
         showError('No image selected');
         return;
+    }
+
+    if (!backendReady) {
+        await checkBackendHealth();
+        if (!backendReady) {
+            showBackendUnavailableOnce();
+            return;
+        }
     }
 
     const selectedModel = modelSelect.value;
@@ -350,13 +572,37 @@ async function generateExplanation() {
     } catch (error) {
         loadingIndicator.classList.add('hidden');
         console.error('Error:', error);
-        showError(`Connection error: ${error.message}. Make sure the backend server is running.`);
+        backendReady = false;
+        setActionButtonsEnabled(false);
+        setBackendStatus(`Backend connection lost. Retry after the API restarts at ${API_BASE_URL}.`, 'bad');
+        showBackendUnavailableOnce();
         explainBtn.disabled = false;
     }
 }
 
 // Display explanation results
 function displayExplanationResults(data) {
+    const explanationModelLabel = document.getElementById('explanationModelUsed');
+    if (explanationModelLabel) {
+        const modelNames = {
+            'random_forest_model': 'Random Forest',
+            'logistic_regression_model': 'Logistic Regression',
+            'decision_tree_model': 'Decision Tree',
+            'k-nearest_neighbors_model': 'K-Nearest Neighbors',
+            'naive_bayes_model': 'Naive Bayes',
+            'cnn_model': 'CNN (Deep Learning)'
+        };
+
+        const selectedName = modelNames[data.explanation_model_used] || data.explanation_model_used || data.model_used;
+        explanationModelLabel.textContent = selectedName;
+    }
+
+    const explanationNote = document.getElementById('explanationNote');
+    if (explanationNote) {
+        explanationNote.textContent = data.note || '';
+        explanationNote.classList.toggle('hidden', !data.note);
+    }
+
     // Display top features
     const topFeaturesDiv = document.getElementById('topFeatures');
     topFeaturesDiv.innerHTML = '<h3>Top Contributing Features</h3>';
@@ -378,6 +624,7 @@ function displayExplanationResults(data) {
     });
     
     topFeaturesDiv.appendChild(featuresList);
+    staggerElements(Array.from(featuresList.querySelectorAll('li')), 75);
     
     // Display visualizations
     const vizDiv = document.getElementById('shapVisualizations');
@@ -410,6 +657,8 @@ function displayExplanationResults(data) {
                 vizDiv.appendChild(vizContainer);
             }
         });
+
+        staggerElements(Array.from(vizDiv.children), 80);
     }
     
     // Display explanation text
@@ -418,6 +667,9 @@ function displayExplanationResults(data) {
     
     // Show explanation card
     explainCard.classList.remove('hidden');
+    explainCard.classList.add('stage-visible');
+    animateReveal(explainCard);
+    animateSequence(explainCard, '.explain-block');
     explainCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -440,6 +692,7 @@ async function checkAPIHealth() {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    initStaggeredEntrance();
     checkAPIHealth();
     console.log('Pneumonia Detection System loaded');
 });
