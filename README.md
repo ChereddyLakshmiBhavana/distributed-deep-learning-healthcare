@@ -8,25 +8,12 @@ Develop an automated diagnostic system to assist medical professionals by provid
 
 ## Problem Statement
 Manual analysis of chest X-ray images is time-consuming and requires expert radiologists. In remote healthcare settings, such expertise may not be available. This system provides automated analysis that is:
-- Fast and accurate
-- Scalable for large datasets
-- Distributable across multiple healthcare institutions
 
 ## Technologies Used
-- **Python 3.x**
-- **Machine Learning**: Scikit-learn, NumPy, Pandas
-- **Deep Learning**: PyTorch, Torchvision
-- **Visualization**: Matplotlib, Seaborn
-- **Backend API**: Flask
-- **Frontend**: HTML, CSS, JavaScript
-- **Model Persistence**: Pickle, Joblib
 
 ## Dataset
-- **Source**: Chest X-Ray Pneumonia Dataset (Kaggle)
-- **Total Images**: 5,216
   - NORMAL: 1,341 images
   - PNEUMONIA: 3,875 images
-- **Split**: Training, Validation, Testing sets
 
 ## Models Implemented
 
@@ -38,7 +25,6 @@ Manual analysis of chest X-ray images is time-consuming and requires expert radi
 5. Naive Bayes
 
 ### Deep Learning Model (Advanced)
-- Convolutional Neural Network (CNN)
   - Custom architecture with Conv2D, MaxPooling, Dropout
   - Adam optimizer
   - Cross-Entropy Loss
@@ -71,12 +57,6 @@ Distributed-deep learning-smart-health care/
 ```
 
 ## Evaluation Metrics
-- Accuracy
-- Precision
-- Recall
-- F1-Score
-- Confusion Matrix
-- ROC-AUC Curve
 
 ## Installation & Setup
 
@@ -131,27 +111,24 @@ Predicts pneumonia from uploaded X-ray image.
 | CNN (Deep Learning) | See `artifacts/` for the latest run | See `artifacts/` for the latest run | See `artifacts/` for the latest run | See `artifacts/` for the latest run |
 
 ## Distributed Learning Approach
-- **Current**: Data parallelism with PyTorch
-- **Future**: Federated learning across multiple hospitals
-- **Benefits**: Privacy-preserving, scalable, collaborative learning
 
 ## Distributed Engineering Stack
 
 The project now includes a practical distributed-engineering layer in the backend:
 
-- `GET /distributed/info` - runtime summary, queue status, and distributed readiness
-- `GET/POST /distributed/jobs` - enqueue or list async jobs
-- `POST /distributed/jobs/process-next` - process the next queued job
-- `POST /predict/async` - queue a prediction instead of running it immediately
-- `POST /distributed/federated/register` - register a hospital/site node
-- `POST /distributed/federated/update` - submit a local model update
-- `POST /distributed/federated/aggregate` - run FedAvg aggregation
-- `GET /distributed/federated/status` - inspect nodes and federated updates
 
 Container support is also included with `docker-compose.yml` so backend and frontend can run as services.
 Run `worker` service as well to process queued distributed jobs.
 
 See `DISTRIBUTED_ENGINEERING.md` for end-to-end commands.
+
+## Deployment Options
+
+If you do not want to use Docker locally, you can deploy:
+- the Flask backend to Render using [render.yaml](render.yaml)
+- the static frontend to Vercel using the files under `frontend/`
+
+See [DEPLOY_RENDER_VERCEL.md](DEPLOY_RENDER_VERCEL.md) for the exact Render/Vercel setup.
 
 ## Team
 [Your Name/Team Names]
@@ -160,6 +137,5 @@ See `DISTRIBUTED_ENGINEERING.md` for end-to-end commands.
 Educational Project
 
 ## References
-- Chest X-Ray Images (Pneumonia) Dataset - Kaggle
-- PyTorch Documentation
-- Scikit-learn Documentation
+
+[![Smoke Test](https://github.com/ChereddyLakshmiBhavana/distributed-deep-learning-healthcare/actions/workflows/smoke-test.yml/badge.svg)](https://github.com/ChereddyLakshmiBhavana/distributed-deep-learning-healthcare/actions/workflows/smoke-test.yml)
