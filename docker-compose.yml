@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   backend:
     build:
@@ -5,8 +7,18 @@ services:
       dockerfile: backend/Dockerfile
     ports:
       - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
-      - ./models:/app/models
+      - ./models:/app/models:ro
       - ./backend/prediction_logs:/app/backend/prediction_logs
       - ./backend/reports:/app/backend/reports
       - ./backend/explanations:/app/backend/explanations
@@ -17,10 +29,13 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     command: ["python", "backend/distributed_worker.py"]
+    env_file:
+      - .env
     depends_on:
       - backend
+    restart: unless-stopped
     volumes:
-      - ./models:/app/models
+      - ./models:/app/models:ro
       - ./backend/prediction_logs:/app/backend/prediction_logs
       - ./backend/reports:/app/backend/reports
       - ./backend/explanations:/app/backend/explanations
