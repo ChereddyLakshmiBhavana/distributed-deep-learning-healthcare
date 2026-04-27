@@ -1,0 +1,67 @@
+name: Docker Compose Smoke Test
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Install smoke test dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install requests pillow
+
+      - name: Build and start services
+        run: |
+          docker compose up --build -d
+
+      - name: Wait for backend health
+        run: |
+          for i in {1..30}; do
+            echo "Checking health (attempt $i)..."
+            if curl -sS http://localhost:5000/health | grep -q '"status":"healthy"'; then
+              echo 'Backend healthy';
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Create a synthetic test X-ray image
+        run: |
+          python3 - <<'PY'
+from PIL import Image
+im = Image.new('L', (224,224), 128)
+im.save('test_xray.jpg')
+print('Created test_xray.jpg')
+PY
+
+      - name: Run predict upload smoke test
+        run: |
+          set -e
+          echo 'Posting test image to /predict/upload'
+          resp=$(curl -s -w "\n%{http_code}" -F "file=@test_xray.jpg" -F "model=fast_resnet_model" http://localhost:5000/predict/upload)
+          http_code=$(echo "$resp" | tail -n1)
+          body=$(echo "$resp" | sed '$d')
+          echo "HTTP: $http_code"
+          echo "$body"
+          if [ "$http_code" -ne 200 ]; then
+            echo "Predict upload failed"; exit 1
+          fi
+
+      - name: Run async smoke test
+        run: |
+          python3 scripts/ci_smoke_test.py
+
+      - name: Tear down
+        if: always()
+        run: |
+          docker compose down -v

@@ -6,8 +6,12 @@
 import requests
 import time
 import base64
-import sys
 from pathlib import Path
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 BASE = "http://localhost:5000"
 
@@ -41,7 +45,7 @@ def post_async(image_path, model="fast_resnet_model"):
     payload = {"image": b, "model": model}
     r = requests.post(f"{BASE}/predict/async", json=payload)
     print("POST /predict/async ->", r.status_code, r.text)
-    if r.status_code != 200:
+    if r.status_code not in (200, 202):
         return None
     jid = r.json().get("job_id")
     return jid
@@ -60,13 +64,23 @@ def poll_job(job_id, timeout=60):
     print("job did not complete in time")
     return None
 
+
+def ensure_sample_image(sample_path):
+    if sample_path.exists():
+        return sample_path
+    if Image is None:
+        raise RuntimeError("Pillow is required to generate a fallback test image")
+    sample_path.parent.mkdir(parents=True, exist_ok=True)
+    image = Image.new("L", (224, 224), 128)
+    image.save(sample_path)
+    print("Created fallback sample image at", sample_path)
+    return sample_path
+
 def main():
     sample = Path("data/test_samples/pneumonia_001.jpg")
-    if not sample.exists():
-        print("Sample image not found at", sample)
-        sys.exit(2)
+    sample = ensure_sample_image(sample)
     if not wait_for_health(60):
-        sys.exit(1)
+        raise SystemExit(1)
     post_file(sample)
     jid = post_async(sample)
     if jid:
