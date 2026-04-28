@@ -111,6 +111,7 @@ def validate_chest_xray_image(image):
     Lightweight input validation to reject obvious non-X-ray images.
 
     This is a heuristic guardrail (not a diagnostic classifier).
+    Thresholds are intentionally lenient to avoid false rejections of valid X-rays.
     """
     # Work on a fixed-size thumbnail for stable stats
     rgb_img = image.convert('RGB').resize((224, 224))
@@ -127,11 +128,11 @@ def validate_chest_xray_image(image):
     gray_std = float(np.std(gray))
     dynamic_range = float(np.max(gray) - np.min(gray))
 
-    # Thresholds tuned to block obvious natural/color images while keeping X-rays.
+    # Lenient thresholds to allow valid X-rays through while blocking obvious color images.
+    # Only reject if it has VERY high color variance (color photos) AND low contrast (not an X-ray)
     is_valid = (
-        color_difference <= 0.03 and
-        gray_std >= 0.05 and
-        dynamic_range >= 0.20
+        color_difference <= 0.10 and  # Loosened from 0.03: allow slight color shifts
+        dynamic_range >= 0.10  # Loosened from 0.20: allow lower contrast X-rays
     )
 
     return {
@@ -278,7 +279,7 @@ def predict():
             }), 400
         
         image_data = data['image']
-        model_name = data.get('model', 'fast_resnet_model')  # Default model
+        requested_model = data.get('model', 'fast_resnet_model')  # Default model
         
         # Decode base64 image
         try:
@@ -289,7 +290,7 @@ def predict():
             image_bytes = base64.b64decode(image_data)
             image = Image.open(BytesIO(image_bytes))
         except Exception as e:
-            safe_log_prediction('/predict', 'failed', model=model_name, error=f'Invalid image data: {str(e)}')
+            safe_log_prediction('/predict', 'failed', model=requested_model, error=f'Invalid image data: {str(e)}')
             return jsonify({
                 'error': f'Invalid image data: {str(e)}'
             }), 400
@@ -297,24 +298,44 @@ def predict():
         # Validate that input resembles a chest X-ray
         validation = validate_chest_xray_image(image)
         if not validation['is_valid']:
-            safe_log_prediction('/predict', 'failed', model=model_name,
+            safe_log_prediction('/predict', 'failed', model=requested_model,
                                error='Uploaded image does not appear to be a chest X-ray')
             return jsonify({
                 'error': 'Uploaded image does not appear to be a chest X-ray. Please upload a valid chest X-ray image.',
                 'validation': validation
             }), 400
         
+        # Determine which model to use (with fallback)
+        model_name = requested_model
+        used_fallback = False
+        
+        # Check if requested classical model is available; if not, fall back to fast_resnet
+        if requested_model not in ['cnn_model', 'fast_resnet_model']:
+            canonical_name = model_loader._resolve_model_name(requested_model)
+            if canonical_name not in model_loader.models:
+                # Model not loaded; fall back to fast_resnet
+                model_name = 'fast_resnet_model'
+                used_fallback = True
+        
         # Make prediction based on model type
-        if model_name == 'cnn_model':
-            # CNN prediction
-            image_tensor = image_transform(image).unsqueeze(0)  # Add batch dimension
-            result = model_loader.predict_cnn(image_tensor)
-        elif model_name == 'fast_resnet_model':
-            result = model_loader.predict_fast_resnet(image)
-        else:
-            # Classical ML prediction
-            features = extract_features_from_image(image)
-            result = model_loader.predict_classical(features, model_name)
+        try:
+            if model_name == 'cnn_model':
+                # CNN prediction
+                image_tensor = image_transform(image).unsqueeze(0)  # Add batch dimension
+                result = model_loader.predict_cnn(image_tensor)
+            elif model_name == 'fast_resnet_model':
+                result = model_loader.predict_fast_resnet(image)
+            else:
+                # Classical ML prediction
+                features = extract_features_from_image(image)
+                result = model_loader.predict_classical(features, model_name)
+        except ValueError as e:
+            # If prediction fails, fall back to fast_resnet as last resort
+            if model_name != 'fast_resnet_model':
+                result = model_loader.predict_fast_resnet(image)
+                used_fallback = True
+            else:
+                raise
 
         safe_log_prediction('/predict', 'success', model=result['model'],
                            prediction=result['prediction'], confidence=result['confidence'])
@@ -329,24 +350,28 @@ def predict():
             confidence=result['confidence']
         )
         
-        # Return prediction
-        return jsonify({
+        # Return prediction with fallback notice if applicable
+        response = {
             'success': True,
             'prediction': result['prediction'],
             'confidence': round(result['confidence'], 4),
             'model_used': result['model'],
             'message': f'Prediction: {result["prediction"]} (Confidence: {result["confidence"]:.2%})'
-        })
+        }
+        if used_fallback:
+            response['note'] = f'Requested model "{requested_model}" not available; using {result["model"]} instead.'
+        
+        return jsonify(response)
     
     except ValueError as e:
-        safe_log_prediction('/predict', 'failed', model=request.get_json(silent=True).get('model') if request.get_json(silent=True) else None,
+        safe_log_prediction('/predict', 'failed', model=requested_model,
                            error=str(e))
         return jsonify({
             'error': str(e)
         }), 400
     
     except Exception as e:
-        safe_log_prediction('/predict', 'failed', model=request.get_json(silent=True).get('model') if request.get_json(silent=True) else None,
+        safe_log_prediction('/predict', 'failed', model=requested_model,
                            error=str(e))
         print(f"Error in prediction: {traceback.format_exc()}")
         return jsonify({
@@ -492,7 +517,7 @@ def predict_file_upload():
             }), 400
         
         # Get model selection (default to the 90%+ ResNet checkpoint)
-        model_name = request.form.get('model', 'fast_resnet_model')
+        requested_model = request.form.get('model', 'fast_resnet_model')
         
         # Read and process image
         file_bytes = file.read()
@@ -501,24 +526,44 @@ def predict_file_upload():
         # Validate that input resembles a chest X-ray
         validation = validate_chest_xray_image(image)
         if not validation['is_valid']:
-            safe_log_prediction('/predict/upload', 'failed', model=model_name,
+            safe_log_prediction('/predict/upload', 'failed', model=requested_model,
                                error='Uploaded image does not appear to be a chest X-ray')
             return jsonify({
                 'error': 'Uploaded image does not appear to be a chest X-ray. Please upload a valid chest X-ray image.',
                 'validation': validation
             }), 400
         
+        # Determine which model to use (with fallback)
+        model_name = requested_model
+        used_fallback = False
+        
+        # Check if requested classical model is available; if not, fall back to fast_resnet
+        if requested_model not in ['cnn_model', 'fast_resnet_model']:
+            canonical_name = model_loader._resolve_model_name(requested_model)
+            if canonical_name not in model_loader.models:
+                # Model not loaded; fall back to fast_resnet
+                model_name = 'fast_resnet_model'
+                used_fallback = True
+        
         # Make prediction based on model type
-        if model_name == 'cnn_model':
-            # CNN prediction
-            image_tensor = image_transform(image).unsqueeze(0)
-            result = model_loader.predict_cnn(image_tensor)
-        elif model_name == 'fast_resnet_model':
-            result = model_loader.predict_fast_resnet(image)
-        else:
-            # Classical ML prediction
-            features = extract_features_from_image(image)
-            result = model_loader.predict_classical(features, model_name)
+        try:
+            if model_name == 'cnn_model':
+                # CNN prediction
+                image_tensor = image_transform(image).unsqueeze(0)
+                result = model_loader.predict_cnn(image_tensor)
+            elif model_name == 'fast_resnet_model':
+                result = model_loader.predict_fast_resnet(image)
+            else:
+                # Classical ML prediction
+                features = extract_features_from_image(image)
+                result = model_loader.predict_classical(features, model_name)
+        except ValueError as e:
+            # If prediction fails, fall back to fast_resnet as last resort
+            if model_name != 'fast_resnet_model':
+                result = model_loader.predict_fast_resnet(image)
+                used_fallback = True
+            else:
+                raise
 
         safe_log_prediction('/predict/upload', 'success', model=result['model'],
                            prediction=result['prediction'], confidence=result['confidence'])
@@ -533,14 +578,18 @@ def predict_file_upload():
             confidence=result['confidence']
         )
         
-        # Return prediction
-        return jsonify({
+        # Return prediction with fallback notice if applicable
+        response = {
             'success': True,
             'prediction': result['prediction'],
             'confidence': round(result['confidence'], 4),
             'model_used': result['model'],
             'message': f'Prediction: {result["prediction"]} (Confidence: {result["confidence"]:.2%})'
-        })
+        }
+        if used_fallback:
+            response['note'] = f'Requested model "{requested_model}" not available; using {result["model"]} instead.'
+        
+        return jsonify(response)
     
     except Exception as e:
         safe_log_prediction('/predict/upload', 'failed', model=request.form.get('model'), error=str(e))

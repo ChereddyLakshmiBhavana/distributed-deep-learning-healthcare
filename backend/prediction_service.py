@@ -23,7 +23,8 @@ def decode_base64_image(image_data):
 
 
 def validate_chest_xray_image(image):
-    """Heuristic validation to reject obvious non-X-ray images."""
+    """Heuristic validation to reject obvious non-X-ray images.
+    Thresholds are intentionally lenient to avoid false rejections of valid X-rays."""
     rgb_img = image.convert('RGB').resize((224, 224))
     rgb = np.array(rgb_img, dtype=np.float32)
 
@@ -36,10 +37,10 @@ def validate_chest_xray_image(image):
     gray_std = float(np.std(gray))
     dynamic_range = float(np.max(gray) - np.min(gray))
 
+    # Lenient thresholds to allow valid X-rays through while blocking obvious color images.
     is_valid = (
-        color_difference <= 0.03 and
-        gray_std >= 0.05 and
-        dynamic_range >= 0.20
+        color_difference <= 0.10 and  # Loosened from 0.03
+        dynamic_range >= 0.10  # Loosened from 0.20
     )
 
     return {
@@ -97,7 +98,7 @@ def extract_features_from_image(image):
 
 
 def predict_from_image(model_loader, image, model_name='fast_resnet_model'):
-    """Run inference on a PIL image using the shared model loader."""
+    """Run inference on a PIL image using the shared model loader. Falls back to fast_resnet if model unavailable."""
     if model_name == 'cnn_model':
         from torchvision import transforms
 
@@ -107,12 +108,25 @@ def predict_from_image(model_loader, image, model_name='fast_resnet_model'):
             transforms.ToTensor(),
         ])
         image_tensor = image_transform(image).unsqueeze(0)
-        result = model_loader.predict_cnn(image_tensor)
+        try:
+            result = model_loader.predict_cnn(image_tensor)
+        except ValueError:
+            # CNN not loaded; fall back to fast_resnet
+            result = model_loader.predict_fast_resnet(image)
     elif model_name == 'fast_resnet_model':
         result = model_loader.predict_fast_resnet(image)
     else:
-        features = extract_features_from_image(image)
-        result = model_loader.predict_classical(features, model_name)
+        # Try classical model; fall back to fast_resnet if not available
+        canonical_name = model_loader._resolve_model_name(model_name)
+        if canonical_name not in model_loader.models:
+            result = model_loader.predict_fast_resnet(image)
+        else:
+            try:
+                features = extract_features_from_image(image)
+                result = model_loader.predict_classical(features, model_name)
+            except ValueError:
+                # Model failed; fall back to fast_resnet
+                result = model_loader.predict_fast_resnet(image)
 
     return result
 
