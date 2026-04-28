@@ -99,34 +99,31 @@ def extract_features_from_image(image):
 
 def predict_from_image(model_loader, image, model_name='fast_resnet_model'):
     """Run inference on a PIL image using the shared model loader. Falls back to fast_resnet if model unavailable."""
-    if model_name == 'cnn_model':
-        from torchvision import transforms
+    result = None
+    
+    try:
+        if model_name == 'cnn_model':
+            from torchvision import transforms
 
-        image_transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.Grayscale(num_output_channels=1),
-            transforms.ToTensor(),
-        ])
-        image_tensor = image_transform(image).unsqueeze(0)
-        try:
+            image_transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.Grayscale(num_output_channels=1),
+                transforms.ToTensor(),
+            ])
+            image_tensor = image_transform(image).unsqueeze(0)
             result = model_loader.predict_cnn(image_tensor)
-        except ValueError:
-            # CNN not loaded; fall back to fast_resnet
-            result = model_loader.predict_fast_resnet(image)
-    elif model_name == 'fast_resnet_model':
-        result = model_loader.predict_fast_resnet(image)
-    else:
-        # Try classical model; fall back to fast_resnet if not available
-        canonical_name = model_loader._resolve_model_name(model_name)
-        if canonical_name not in model_loader.models:
+        elif model_name == 'fast_resnet_model':
             result = model_loader.predict_fast_resnet(image)
         else:
-            try:
-                features = extract_features_from_image(image)
-                result = model_loader.predict_classical(features, model_name)
-            except ValueError:
-                # Model failed; fall back to fast_resnet
-                result = model_loader.predict_fast_resnet(image)
+            # Try classical model
+            features = extract_features_from_image(image)
+            result = model_loader.predict_classical(features, model_name)
+    except (ValueError, KeyError):
+        # Any model failure; fall back to fast_resnet
+        if model_name != 'fast_resnet_model' and result is None:
+            result = model_loader.predict_fast_resnet(image)
+        else:
+            raise
 
     return result
 

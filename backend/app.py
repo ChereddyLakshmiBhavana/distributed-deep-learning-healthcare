@@ -305,37 +305,31 @@ def predict():
                 'validation': validation
             }), 400
         
-        # Determine which model to use (with fallback)
-        model_name = requested_model
+        # Make prediction with automatic fallback for unavailable models
+        result = None
         used_fallback = False
         
-        # Check if requested classical model is available; if not, fall back to fast_resnet
-        if requested_model not in ['cnn_model', 'fast_resnet_model']:
-            canonical_name = model_loader._resolve_model_name(requested_model)
-            if canonical_name not in model_loader.models:
-                # Model not loaded; fall back to fast_resnet
-                model_name = 'fast_resnet_model'
-                used_fallback = True
-        
-        # Make prediction based on model type
-        try:
-            if model_name == 'cnn_model':
-                # CNN prediction
-                image_tensor = image_transform(image).unsqueeze(0)  # Add batch dimension
-                result = model_loader.predict_cnn(image_tensor)
-            elif model_name == 'fast_resnet_model':
+        # Try requested model first
+        if requested_model in ['cnn_model', 'fast_resnet_model']:
+            try:
+                if requested_model == 'cnn_model':
+                    image_tensor = image_transform(image).unsqueeze(0)
+                    result = model_loader.predict_cnn(image_tensor)
+                else:
+                    result = model_loader.predict_fast_resnet(image)
+            except (ValueError, KeyError):
+                # Fall back to fast_resnet if it fails
                 result = model_loader.predict_fast_resnet(image)
-            else:
-                # Classical ML prediction
+                used_fallback = True
+        else:
+            # For classical models, try with fallback
+            try:
                 features = extract_features_from_image(image)
-                result = model_loader.predict_classical(features, model_name)
-        except ValueError as e:
-            # If prediction fails, fall back to fast_resnet as last resort
-            if model_name != 'fast_resnet_model':
+                result = model_loader.predict_classical(features, requested_model)
+            except (ValueError, KeyError):
+                # Classical model not loaded; use fast_resnet instead
                 result = model_loader.predict_fast_resnet(image)
                 used_fallback = True
-            else:
-                raise
 
         safe_log_prediction('/predict', 'success', model=result['model'],
                            prediction=result['prediction'], confidence=result['confidence'])
@@ -533,37 +527,31 @@ def predict_file_upload():
                 'validation': validation
             }), 400
         
-        # Determine which model to use (with fallback)
-        model_name = requested_model
+        # Make prediction with automatic fallback for unavailable models
+        result = None
         used_fallback = False
         
-        # Check if requested classical model is available; if not, fall back to fast_resnet
-        if requested_model not in ['cnn_model', 'fast_resnet_model']:
-            canonical_name = model_loader._resolve_model_name(requested_model)
-            if canonical_name not in model_loader.models:
-                # Model not loaded; fall back to fast_resnet
-                model_name = 'fast_resnet_model'
-                used_fallback = True
-        
-        # Make prediction based on model type
-        try:
-            if model_name == 'cnn_model':
-                # CNN prediction
-                image_tensor = image_transform(image).unsqueeze(0)
-                result = model_loader.predict_cnn(image_tensor)
-            elif model_name == 'fast_resnet_model':
+        # Try requested model first
+        if requested_model in ['cnn_model', 'fast_resnet_model']:
+            try:
+                if requested_model == 'cnn_model':
+                    image_tensor = image_transform(image).unsqueeze(0)
+                    result = model_loader.predict_cnn(image_tensor)
+                else:
+                    result = model_loader.predict_fast_resnet(image)
+            except (ValueError, KeyError):
+                # Fall back to fast_resnet if it fails
                 result = model_loader.predict_fast_resnet(image)
-            else:
-                # Classical ML prediction
+                used_fallback = True
+        else:
+            # For classical models, try with fallback
+            try:
                 features = extract_features_from_image(image)
-                result = model_loader.predict_classical(features, model_name)
-        except ValueError as e:
-            # If prediction fails, fall back to fast_resnet as last resort
-            if model_name != 'fast_resnet_model':
+                result = model_loader.predict_classical(features, requested_model)
+            except (ValueError, KeyError):
+                # Classical model not loaded; use fast_resnet instead
                 result = model_loader.predict_fast_resnet(image)
                 used_fallback = True
-            else:
-                raise
 
         safe_log_prediction('/predict/upload', 'success', model=result['model'],
                            prediction=result['prediction'], confidence=result['confidence'])
