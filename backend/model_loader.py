@@ -7,9 +7,31 @@ import joblib
 import torch
 import torch.nn as nn
 import numpy as np
+import sys
+import types
 from pathlib import Path
 import json
 from torchvision import models, transforms
+
+
+def _install_numpy_core_compat():
+    """Provide a compatibility alias for pickles that reference numpy._core."""
+    if 'numpy._core' in sys.modules:
+        return
+
+    core_alias = types.ModuleType('numpy._core')
+    core_alias.__dict__.update(np.core.__dict__)
+    sys.modules['numpy._core'] = core_alias
+    sys.modules['numpy._core.multiarray'] = np.core.multiarray
+    sys.modules['numpy._core.numeric'] = np.core.numeric
+    try:
+        sys.modules['numpy._core._multiarray_umath'] = np.core._multiarray_umath
+    except AttributeError:
+        pass
+    setattr(np, '_core', core_alias)
+
+
+_install_numpy_core_compat()
 
 class PneumoniaCNN(nn.Module):
     """CNN Model Architecture - Must match training definition"""
