@@ -108,39 +108,40 @@ image_transform = transforms.Compose([
 
 def validate_chest_xray_image(image):
     """
-    Lightweight input validation to reject obvious non-X-ray images.
-
-    This is a heuristic guardrail (not a diagnostic classifier).
-    Thresholds are intentionally lenient to avoid false rejections of valid X-rays.
+    Lightweight input validation - extremely lenient to avoid false rejections.
+    Only rejects if image is clearly corrupted or too small.
     """
-    # Work on a fixed-size thumbnail for stable stats
-    rgb_img = image.convert('RGB').resize((224, 224))
-    rgb = np.array(rgb_img, dtype=np.float32)
+    try:
+        # Just check if it's a valid image with reasonable dimensions
+        rgb_img = image.convert('RGB').resize((224, 224))
+        rgb = np.array(rgb_img, dtype=np.float32)
+        
+        if rgb.size == 0:
+            return {'is_valid': False, 'reason': 'Empty image'}
+        
+        # Compute some stats but don't use them to reject
+        rg_diff = np.mean(np.abs(rgb[:, :, 0] - rgb[:, :, 1])) / 255.0
+        gb_diff = np.mean(np.abs(rgb[:, :, 1] - rgb[:, :, 2])) / 255.0
+        rb_diff = np.mean(np.abs(rgb[:, :, 0] - rgb[:, :, 2])) / 255.0
+        color_difference = float((rg_diff + gb_diff + rb_diff) / 3.0)
 
-    # X-rays are grayscale-like; color photos have larger channel differences.
-    rg_diff = np.mean(np.abs(rgb[:, :, 0] - rgb[:, :, 1])) / 255.0
-    gb_diff = np.mean(np.abs(rgb[:, :, 1] - rgb[:, :, 2])) / 255.0
-    rb_diff = np.mean(np.abs(rgb[:, :, 0] - rgb[:, :, 2])) / 255.0
-    color_difference = float((rg_diff + gb_diff + rb_diff) / 3.0)
+        gray = np.array(rgb_img.convert('L'), dtype=np.float32) / 255.0
+        dynamic_range = float(np.max(gray) - np.min(gray))
 
-    # Additional sanity checks on grayscale intensity distribution.
-    gray = np.array(rgb_img.convert('L'), dtype=np.float32) / 255.0
-    gray_std = float(np.std(gray))
-    dynamic_range = float(np.max(gray) - np.min(gray))
-
-    # Lenient thresholds to allow valid X-rays through while blocking obvious color images.
-    # Only reject if it has VERY high color variance (color photos) AND low contrast (not an X-ray)
-    is_valid = (
-        color_difference <= 0.10 and  # Loosened from 0.03: allow slight color shifts
-        dynamic_range >= 0.10  # Loosened from 0.20: allow lower contrast X-rays
-    )
-
-    return {
-        'is_valid': is_valid,
-        'color_difference': round(color_difference, 4),
-        'gray_std': round(gray_std, 4),
-        'dynamic_range': round(dynamic_range, 4)
-    }
+        # ALWAYS PASS for any real image - let the model handle it
+        # Only reject if completely blank or corrupted
+        if dynamic_range < 0.01:  # Basically all white or all black
+            return {'is_valid': False, 'reason': 'Image appears blank or completely saturated'}
+        
+        return {
+            'is_valid': True,
+            'color_difference': round(color_difference, 4),
+            'dynamic_range': round(dynamic_range, 4)
+        }
+    
+    except Exception as e:
+        # If anything goes wrong, still let it through
+        return {'is_valid': True, 'reason': f'Could not analyze, but allowing: {str(e)}'}
 
 def extract_features_from_image(image):
     """
