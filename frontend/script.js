@@ -20,6 +20,8 @@ const reportBtn = document.getElementById('reportBtn');
 const explainBtn = document.getElementById('explainBtn');
 const modelSelect = document.getElementById('modelSelect');
 const loadingIndicator = document.getElementById('loadingIndicator');
+const loadingProgressBar = document.getElementById('loadingProgressBar');
+const loadingMessage = document.getElementById('loadingMessage');
 const resultsCard = document.getElementById('resultsCard');
 const reportCard = document.getElementById('reportCard');
 const explainCard = document.getElementById('explainCard');
@@ -34,6 +36,9 @@ let currentImageFile = null;
 let backendReady = false;
 let backendHealthTimer = null;
 let connectionErrorCooldownUntil = 0;
+let predictionController = null;
+let loadingProgressTimer = null;
+let loadingMessageTimer = null;
 
 const backendStatus = document.getElementById('backendStatus');
 const actionButtons = [predictBtn, reportBtn, explainBtn];
@@ -206,6 +211,65 @@ function transitionPreviewToUpload() {
     }, 170);
 }
 
+function resetLoadingState() {
+    if (loadingProgressTimer) {
+        clearInterval(loadingProgressTimer);
+        loadingProgressTimer = null;
+    }
+
+    if (loadingMessageTimer) {
+        clearInterval(loadingMessageTimer);
+        loadingMessageTimer = null;
+    }
+
+    if (predictionController) {
+        predictionController.abort();
+        predictionController = null;
+    }
+
+    if (loadingProgressBar) {
+        loadingProgressBar.style.width = '0%';
+    }
+
+    if (loadingMessage) {
+        loadingMessage.textContent = 'Analyzing image...';
+    }
+}
+
+function startLoadingState() {
+    if (loadingProgressBar) {
+        loadingProgressBar.style.width = '14%';
+    }
+
+    if (loadingMessage) {
+        loadingMessage.textContent = 'Analyzing image...';
+    }
+
+    const progressMessages = [
+        'Analyzing image...',
+        'Running model inference...',
+        'Crunching confidence scores...',
+        'Finalizing result...'
+    ];
+
+    let progress = 14;
+    let messageIndex = 0;
+
+    loadingProgressTimer = setInterval(() => {
+        progress = Math.min(progress + 8, 92);
+        if (loadingProgressBar) {
+            loadingProgressBar.style.width = `${progress}%`;
+        }
+    }, 2500);
+
+    loadingMessageTimer = setInterval(() => {
+        messageIndex = (messageIndex + 1) % progressMessages.length;
+        if (loadingMessage) {
+            loadingMessage.textContent = progressMessages[messageIndex];
+        }
+    }, 6500);
+}
+
 // Event Listeners
 uploadArea.addEventListener('click', () => imageInput.click());
 imageInput.addEventListener('change', handleImageSelect);
@@ -291,6 +355,7 @@ function handleFile(file) {
 
 // Reset upload
 function resetUpload() {
+    resetLoadingState();
     currentImageBase64 = null;
     currentImageFile = null;
     imageInput.value = '';
@@ -328,9 +393,15 @@ async function makePrediction() {
     
     // Show loading
     loadingIndicator.classList.remove('hidden');
+    startLoadingState();
     predictBtn.disabled = true;
     resultsCard.classList.add('hidden');
     errorCard.classList.add('hidden');
+
+    predictionController = new AbortController();
+    const predictionTimeoutId = setTimeout(() => {
+        predictionController?.abort();
+    }, 90000);
 
     try {
         // Send POST request to API
@@ -339,6 +410,7 @@ async function makePrediction() {
             headers: {
                 'Content-Type': 'application/json'
             },
+            signal: predictionController.signal,
             body: JSON.stringify({
                 image: currentImageBase64,
                 model: selectedModel
@@ -347,6 +419,8 @@ async function makePrediction() {
 
         const data = await response.json();
 
+        clearTimeout(predictionTimeoutId);
+        resetLoadingState();
         loadingIndicator.classList.add('hidden');
 
         if (response.ok && data.success) {
@@ -356,12 +430,19 @@ async function makePrediction() {
             predictBtn.disabled = false;
         }
     } catch (error) {
+        clearTimeout(predictionTimeoutId);
+        resetLoadingState();
         loadingIndicator.classList.add('hidden');
         console.error('Error:', error);
-        backendReady = false;
-        setActionButtonsEnabled(false);
-        setBackendStatus(`Backend connection lost. Retry after the API restarts at ${API_BASE_URL}.`, 'bad');
-        showBackendUnavailableOnce();
+        if (error.name === 'AbortError') {
+            setBackendStatus(`Prediction timed out after 90 seconds at ${API_BASE_URL}.`, 'warn');
+            showError('Prediction timed out after 90 seconds. Please retry.');
+        } else {
+            backendReady = false;
+            setActionButtonsEnabled(false);
+            setBackendStatus(`Backend connection lost. Retry after the API restarts at ${API_BASE_URL}.`, 'bad');
+            showBackendUnavailableOnce();
+        }
         predictBtn.disabled = false;
     }
 }

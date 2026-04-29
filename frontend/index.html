@@ -72,7 +72,11 @@
                 <!-- Loading Indicator -->
                 <div id="loadingIndicator" class="loading hidden">
                     <div class="spinner"></div>
-                    <p>Analyzing image...</p>
+                    <div class="loading-meter" aria-hidden="true">
+                        <div id="loadingProgressBar" class="loading-progress"></div>
+                    </div>
+                    <p id="loadingMessage">Analyzing image...</p>
+                    <p class="loading-hint">This can take up to 90 seconds on the first request.</p>
                 </div>
             </div>
 
