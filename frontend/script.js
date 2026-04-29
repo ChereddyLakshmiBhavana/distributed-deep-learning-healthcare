@@ -690,8 +690,7 @@ async function generateExplanation() {
     if (!backendReady) {
         await checkBackendHealth();
         if (!backendReady) {
-            showBackendUnavailableOnce();
-            return;
+            setBackendStatus(`Trying explanation directly against ${API_BASE_URL}...`, 'warn');
         }
     }
 
