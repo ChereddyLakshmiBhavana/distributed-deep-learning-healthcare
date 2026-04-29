@@ -73,7 +73,7 @@ function setBackendStatus(message, tone = 'neutral') {
 async function checkBackendHealth() {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         const response = await fetch(`${API_BASE_URL}/health`, { signal: controller.signal });
         clearTimeout(timeoutId);
 
@@ -87,8 +87,7 @@ async function checkBackendHealth() {
         throw new Error(`Health check failed with status ${response.status}`);
     } catch (error) {
         backendReady = false;
-        setBackendStatus(`Backend offline. Start the API at ${API_BASE_URL} to enable analysis.`, 'bad');
-        setActionButtonsEnabled(false);
+        setBackendStatus(`Backend not confirmed yet. Analysis will try ${API_BASE_URL} directly.`, 'warn');
         return false;
     }
 }
@@ -108,7 +107,7 @@ function showBackendUnavailableOnce() {
     }
 
     connectionErrorCooldownUntil = now + 8000;
-    showError(`Backend is not reachable at ${API_BASE_URL}. Start the server once, then retry.`);
+    showError(`Backend is not reachable at ${API_BASE_URL}. The app will keep retrying, but the service may still be warming up.`);
 }
 
 function replayClass(element, className) {
@@ -337,7 +336,7 @@ function handleFile(file) {
         
         // Show preview, hide upload area with transition
         transitionUploadToPreview();
-        setActionButtonsEnabled(backendReady);
+        setActionButtonsEnabled(true);
         
         // Hide results and errors
         resultsCard.classList.add('hidden');
@@ -384,8 +383,7 @@ async function makePrediction() {
     if (!backendReady) {
         await checkBackendHealth();
         if (!backendReady) {
-            showBackendUnavailableOnce();
-            return;
+            setBackendStatus(`Trying analysis directly against ${API_BASE_URL}...`, 'warn');
         }
     }
 
@@ -507,8 +505,7 @@ async function generateReport() {
     if (!backendReady) {
         await checkBackendHealth();
         if (!backendReady) {
-            showBackendUnavailableOnce();
-            return;
+            setBackendStatus(`Trying explanation directly against ${API_BASE_URL}...`, 'warn');
         }
     }
 
@@ -656,8 +653,7 @@ async function generateExplanation() {
         loadingIndicator.classList.add('hidden');
         console.error('Error:', error);
         backendReady = false;
-        setActionButtonsEnabled(false);
-        setBackendStatus(`Backend connection lost. Retry after the API restarts at ${API_BASE_URL}.`, 'bad');
+        setBackendStatus(`Backend connection lost. Retrying may work once ${API_BASE_URL} finishes warming up.`, 'warn');
         showBackendUnavailableOnce();
         explainBtn.disabled = false;
     }
