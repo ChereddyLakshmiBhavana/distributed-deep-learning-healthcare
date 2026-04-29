@@ -1,9 +1,11 @@
 // API Configuration
 const API_BASE_URL = window.__API_BASE_URL__ || (() => {
     if (window.location && window.location.hostname) {
-        return `${window.location.protocol}//${window.location.hostname}:5000`;
+        const port = window.location.port ? `:${window.location.port}` : '';
+        return `${window.location.protocol}//${window.location.hostname}${port}`;
     }
 
+    // Default for local development
     return 'http://localhost:5000';
 })();
 
