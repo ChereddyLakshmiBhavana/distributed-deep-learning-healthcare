@@ -33,6 +33,22 @@ def _install_numpy_core_compat():
 
 _install_numpy_core_compat()
 
+
+def _apply_sklearn_pickle_compat(model):
+    """Patch known missing attrs on legacy sklearn pickles loaded in newer runtimes."""
+    class_name = model.__class__.__name__
+
+    if class_name == 'LogisticRegression':
+        # Older serialized artifacts may miss attrs required by newer sklearn internals.
+        if not hasattr(model, 'multi_class'):
+            model.multi_class = 'auto'
+        if not hasattr(model, 'n_jobs'):
+            model.n_jobs = None
+        if not hasattr(model, 'l1_ratio'):
+            model.l1_ratio = None
+
+    return model
+
 class PneumoniaCNN(nn.Module):
     """CNN Model Architecture - Must match training definition"""
     def __init__(self, num_classes=2):
@@ -142,7 +158,8 @@ class ModelLoader:
         for model_name in model_names:
             model_path = self.models_dir / f'{model_name}.pkl'
             if model_path.exists():
-                self.models[model_name] = joblib.load(model_path)
+                loaded_model = joblib.load(model_path)
+                self.models[model_name] = _apply_sklearn_pickle_compat(loaded_model)
                 print(f"✓ Loaded: {model_name}")
             else:
                 print(f"⚠ Not found: {model_name}")
@@ -208,15 +225,23 @@ class ModelLoader:
         else:
             features_scaled = features
         
-        # Predict
-        prediction = model.predict(features_scaled)[0]
-        
-        # Get probability if available
-        if hasattr(model, 'predict_proba'):
-            probabilities = model.predict_proba(features_scaled)[0]
-            confidence = float(max(probabilities))
-        else:
-            confidence = 1.0
+        # Predict (retry once after compatibility patch for legacy sklearn artifacts)
+        try:
+            prediction = model.predict(features_scaled)[0]
+            if hasattr(model, 'predict_proba'):
+                probabilities = model.predict_proba(features_scaled)[0]
+                confidence = float(max(probabilities))
+            else:
+                confidence = 1.0
+        except AttributeError:
+            model = _apply_sklearn_pickle_compat(model)
+            self.models[canonical_name] = model
+            prediction = model.predict(features_scaled)[0]
+            if hasattr(model, 'predict_proba'):
+                probabilities = model.predict_proba(features_scaled)[0]
+                confidence = float(max(probabilities))
+            else:
+                confidence = 1.0
         
         # Decode label
         if self.label_encoder:
