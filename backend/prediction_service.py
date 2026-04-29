@@ -104,7 +104,7 @@ def extract_features_from_image(image):
     ])
 
 
-def predict_from_image(model_loader, image, model_name='fast_resnet_model'):
+def predict_from_image(model_loader, image, model_name='k-nearest_neighbors_model'):
     """Run inference on a PIL image using the shared model loader. Falls back to fast_resnet if model unavailable."""
     result = None
     
@@ -135,7 +135,7 @@ def predict_from_image(model_loader, image, model_name='fast_resnet_model'):
     return result
 
 
-def predict_from_image_bytes(model_loader, image_bytes, model_name='fast_resnet_model', validate=True):
+def predict_from_image_bytes(model_loader, image_bytes, model_name='k-nearest_neighbors_model', validate=True):
     """Decode bytes, optionally validate, and return prediction payload."""
     image = decode_image_bytes(image_bytes)
     validation = validate_chest_xray_image(image) if validate else {'is_valid': True}
@@ -157,7 +157,7 @@ def predict_from_image_bytes(model_loader, image_bytes, model_name='fast_resnet_
     }
 
 
-def predict_from_base64(model_loader, image_data, model_name='fast_resnet_model', validate=True):
+def predict_from_base64(model_loader, image_data, model_name='k-nearest_neighbors_model', validate=True):
     """Decode a base64 image payload and run inference."""
     if ',' in image_data:
         image_data = image_data.split(',', 1)[1]

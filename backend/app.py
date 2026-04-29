@@ -280,7 +280,7 @@ def predict():
             }), 400
         
         image_data = data['image']
-        requested_model = data.get('model', 'fast_resnet_model')  # Default model
+        requested_model = data.get('model', 'k-nearest_neighbors_model')  # Default model
         
         # Decode base64 image
         try:
@@ -512,7 +512,7 @@ def predict_file_upload():
             }), 400
         
         # Get model selection (default to the 90%+ ResNet checkpoint)
-        requested_model = request.form.get('model', 'fast_resnet_model')
+        requested_model = request.form.get('model', 'k-nearest_neighbors_model')
         
         # Read and process image
         file_bytes = file.read()
@@ -614,7 +614,7 @@ def predict_with_report():
             }), 400
         
         # Get model selection (default to the 90%+ ResNet checkpoint)
-        model_name = request.form.get('model', 'fast_resnet_model')
+        model_name = request.form.get('model', 'k-nearest_neighbors_model')
         include_all_models = request.form.get('include_all_models', 'false').lower() == 'true'
         
         # Read and process image
@@ -735,7 +735,7 @@ def predict_with_explanation():
             }), 400
         
         # Get model selection (default to the 90%+ ResNet checkpoint)
-        model_name = request.form.get('model', 'fast_resnet_model')
+        model_name = request.form.get('model', 'k-nearest_neighbors_model')
         explanation_model_name = model_name
         
         # Read and process image
