@@ -318,7 +318,7 @@ def predict():
                     result = model_loader.predict_cnn(image_tensor)
                 else:
                     result = model_loader.predict_fast_resnet(image)
-            except (ValueError, KeyError):
+            except (ValueError, KeyError, AttributeError, TypeError):
                 # Fall back to fast_resnet if it fails
                 result = model_loader.predict_fast_resnet(image)
                 used_fallback = True
@@ -327,7 +327,7 @@ def predict():
             try:
                 features = extract_features_from_image(image)
                 result = model_loader.predict_classical(features, requested_model)
-            except (ValueError, KeyError):
+            except (ValueError, KeyError, AttributeError, TypeError):
                 # Classical model not loaded; use fast_resnet instead
                 result = model_loader.predict_fast_resnet(image)
                 used_fallback = True
@@ -540,7 +540,7 @@ def predict_file_upload():
                     result = model_loader.predict_cnn(image_tensor)
                 else:
                     result = model_loader.predict_fast_resnet(image)
-            except (ValueError, KeyError):
+            except (ValueError, KeyError, AttributeError, TypeError):
                 # Fall back to fast_resnet if it fails
                 result = model_loader.predict_fast_resnet(image)
                 used_fallback = True
@@ -549,7 +549,7 @@ def predict_file_upload():
             try:
                 features = extract_features_from_image(image)
                 result = model_loader.predict_classical(features, requested_model)
-            except (ValueError, KeyError):
+            except (ValueError, KeyError, AttributeError, TypeError):
                 # Classical model not loaded; use fast_resnet instead
                 result = model_loader.predict_fast_resnet(image)
                 used_fallback = True
@@ -643,7 +643,10 @@ def predict_with_report():
         if model_name == 'fast_resnet_model':
             result = model_loader.predict_fast_resnet(image)
         else:
-            result = model_loader.predict_classical(features, model_name)
+            try:
+                result = model_loader.predict_classical(features, model_name)
+            except (ValueError, KeyError, AttributeError, TypeError):
+                result = model_loader.predict_fast_resnet(image)
         
         # Get predictions from all models if requested
         all_models_results = None
@@ -766,7 +769,10 @@ def predict_with_explanation():
             image_tensor = image_transform(image).unsqueeze(0)
             prediction_result = model_loader.predict_cnn(image_tensor)
         else:
-            prediction_result = model_loader.predict_classical(features, model_name)
+            try:
+                prediction_result = model_loader.predict_classical(features, model_name)
+            except (ValueError, KeyError, AttributeError, TypeError):
+                prediction_result = model_loader.predict_fast_resnet(image)
 
         if explanation_model_name not in model_loader.models:
             explanation_model_name = 'random_forest_model'
